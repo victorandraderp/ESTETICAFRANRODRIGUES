@@ -671,6 +671,26 @@
       }
     }
   </style>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-app.js";
+  import { getDatabase, ref, set, push, update, remove, get, child }
+    from "https://www.gstatic.com/firebasejs/11.7.3/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAY34TCHirQIIvkgFbD6bKet2rOzYq_Qas",
+    authDomain: "franclinica-6c86c.firebaseapp.com",
+    databaseURL: "https://franclinica-6c86c-default-rtdb.firebaseio.com",
+    projectId: "franclinica-6c86c",
+    storageBucket: "franclinica-6c86c.firebasestorage.app",
+    messagingSenderId: "940948970320",
+    appId: "1:940948970320:web:b6f4a2776b0ebb100aaa55"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+</script>
+
 </head>
 <body>
   <header>
@@ -1134,9 +1154,9 @@
 
   <script>
     // Variáveis globais atualizadas
-    let clientes = JSON.parse(localStorage.getItem("clientes")) || [];
-    let procedimentos = JSON.parse(localStorage.getItem("procedimentos")) || [];
-    let pacotes = JSON.parse(localStorage.getItem("pacotes")) || [];
+    let clientes = []; // Dados vindos do Firebase
+    let procedimentos = []; // Dados vindos do Firebase
+    let pacotes = []; // Dados vindos do Firebase
     let clienteEditandoIndex = null;
     let procedimentosTemp = [];
     let agendamentoEditando = null;
@@ -1179,9 +1199,10 @@
     }
 
     function salvarLocal() {
-      localStorage.setItem("clientes", JSON.stringify(clientes));
-      localStorage.setItem("procedimentos", JSON.stringify(procedimentos));
-      localStorage.setItem("pacotes", JSON.stringify(pacotes));
+  // Substituído por Firebase
+      /* salvar clientes no Firebase */
+      /* salvar procedimentos no Firebase */
+      /* salvar pacotes no Firebase */
     }
 
     // Funções de navegação
@@ -1509,45 +1530,51 @@
       });
     }
 
-    function salvarCliente() {
-      const nome = document.getElementById('nomeCliente').value.trim();
-      let whatsapp = document.getElementById('whatsCliente').value.trim().replace(/\D/g, '');
-      const email = document.getElementById('emailCliente').value.trim();
-      const observacoes = document.getElementById('obsCliente').value.trim();
-      
-      // Validações básicas
-      if (!nome) {
-        alert('Por favor, informe o nome do cliente.');
-        return;
-      }
-      
-      if (!whatsapp || whatsapp.length < 11) {
-        alert('Por favor, informe um número de WhatsApp válido com DDD.');
-        return;
-      }
-      
-      // Formatar WhatsApp
-      whatsapp = '+' + whatsapp;
-      
-      if (procedimentosTemp.length === 0) {
-        alert('Por favor, adicione pelo menos um procedimento para o cliente.');
-        return;
-      }
-      
-      const cliente = {
-        nome,
-        whatsapp,
-        email,
-        observacoes,
-        procedimentos: [...procedimentosTemp]
-      };
-      
-      if (clienteEditandoIndex !== null) {
-        // Edição de cliente existente
-        clientes[clienteEditandoIndex] = cliente;
-      } else {
-        // Novo cliente
-        clientes.push(cliente);
+    
+function salvarCliente() {
+  const nome = document.getElementById('nomeCliente').value.trim();
+  let whatsapp = document.getElementById('whatsCliente').value.trim().replace(/\D/g, '');
+  const email = document.getElementById('emailCliente').value.trim();
+  const observacoes = document.getElementById('obsCliente').value.trim();
+
+  if (!nome) {
+    alert('Por favor, informe o nome do cliente.');
+    return;
+  }
+
+  if (!whatsapp || whatsapp.length < 11) {
+    alert('Por favor, informe um número de WhatsApp válido com DDD.');
+    return;
+  }
+
+  whatsapp = '+' + whatsapp;
+
+  if (procedimentosTemp.length === 0) {
+    alert('Por favor, adicione pelo menos um procedimento para o cliente.');
+    return;
+  }
+
+  const cliente = {
+    nome,
+    whatsapp,
+    email,
+    observacoes,
+    procedimentos: [...procedimentosTemp]
+  };
+
+  if (clienteEditandoIndex !== null && clientes[clienteEditandoIndex].firebaseId) {
+    const id = clientes[clienteEditandoIndex].firebaseId;
+    update(ref(db, 'clientes/' + id), cliente);
+  } else {
+    const novoRef = push(ref(db, 'clientes'));
+    set(novoRef, cliente);
+  }
+
+  fecharModal('modalCliente');
+  listarClientes();
+  carregarDashboard();
+}
+
       }
       
       salvarLocal();
