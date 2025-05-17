@@ -19,7 +19,16 @@
       --gray: #6c757d;
       --white: #ffffff;
     }
-    
+    .appointment-occupied {
+        background: repeating-linear-gradient(
+            45deg,
+            rgba(0,0,0,0.05),
+            rgba(0,0,0,0.05) 5px,
+            rgba(0,0,0,0.1) 5px,
+            rgba(0,0,0,0.1) 10px
+        );
+        height: 100%;
+    }
     * {
       box-sizing: border-box;
       margin: 0;
@@ -287,6 +296,10 @@
       background: var(--danger);
     }
     
+    .status-missed {
+      background: var(--warning);
+    }
+    
     .badge {
       display: inline-block;
       padding: 0.25rem 0.5rem;
@@ -313,6 +326,11 @@
     .badge-warning {
       background: var(--warning);
       color: var(--dark);
+    }
+    
+    .badge-info {
+      background: var(--info);
+      color: var(--white);
     }
     
     .search-box {
@@ -422,6 +440,12 @@
     .appointment-time {
       font-size: 0.75rem;
       color: var(--gray);
+    }
+    
+    .appointment-duration {
+      font-size: 0.7rem;
+      color: var(--gray);
+      font-style: italic;
     }
     
     .modal {
@@ -587,6 +611,32 @@
       border-left: 4px solid #17a2b8;
     }
     
+    /* Novo estilo para pacotes */
+    .package-badge {
+      background: #f0e6ff;
+      color: #6f42c1;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      margin-left: 5px;
+    }
+    
+    /* Estilo para selects múltiplos */
+    select[multiple] {
+      min-height: 150px;
+      padding: 0.5rem;
+    }
+    
+    select[multiple] option {
+      padding: 0.5rem;
+      margin: 2px 0;
+      border-radius: 3px;
+    }
+    
+    select[multiple] option:hover {
+      background: #f0f0f0;
+    }
+    
     @media (max-width: 768px) {
       nav ul {
         flex-wrap: wrap;
@@ -623,6 +673,10 @@
       
       .schedule-slot {
         height: 40px;
+      }
+      
+      .modal-content {
+        width: 95%;
       }
     }
   </style>
@@ -718,8 +772,9 @@
       
       <div class="status-legend">
         <span><i class="fas fa-circle status-scheduled"></i> Agendado</span>
-        <span><i class="fas fa-circle status-completed" style="margin-left:15px;"></i> Atendido</span>
+        <span><i class="fas fa-circle status-completed" style="margin-left:15px;"></i> Concluído</span>
         <span><i class="fas fa-circle status-canceled" style="margin-left:15px;"></i> Cancelado</span>
+        <span><i class="fas fa-circle status-missed" style="margin-left:15px;"></i> Faltou</span>
       </div>
       
       <div id="listaClientes"></div>
@@ -785,9 +840,14 @@
           <i class="fas fa-search"></i>
           <input type="text" id="buscaProcedimento" placeholder="Buscar procedimento..." oninput="filtrarProcedimentos()">
         </div>
-        <button class="btn-primary" onclick="abrirModalProcedimento()">
-          <i class="fas fa-plus"></i> Novo Procedimento
-        </button>
+        <div>
+          <button class="btn-primary" onclick="abrirModalProcedimento()">
+            <i class="fas fa-plus"></i> Novo Procedimento
+          </button>
+          <button class="btn-info" onclick="abrirModalPacote()">
+            <i class="fas fa-boxes"></i> Pacotes
+          </button>
+        </div>
       </div>
       
       <div id="listaProcedimentos"></div>
@@ -801,6 +861,7 @@
         <div class="tab active" onclick="mudarAbaRelatorio('faturamento')">Faturamento</div>
         <div class="tab" onclick="mudarAbaRelatorio('procedimentos')">Procedimentos</div>
         <div class="tab" onclick="mudarAbaRelatorio('clientes')">Clientes</div>
+        <div class="tab" onclick="mudarAbaRelatorio('pacotes')">Pacotes</div>
       </div>
       
       <div class="tab-content active" id="faturamento">
@@ -882,6 +943,28 @@
         <div id="grafico-clientes"></div>
         <div id="tabela-clientes"></div>
       </div>
+      
+      <div class="tab-content" id="pacotes">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Período</label>
+            <select id="periodoPacotes">
+              <option value="30" selected>Últimos 30 dias</option>
+              <option value="90">Últimos 3 meses</option>
+              <option value="180">Últimos 6 meses</option>
+              <option value="365">Último ano</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <button class="btn-primary" onclick="gerarRelatorioPacotes()">
+              <i class="fas fa-box-open"></i> Gerar Relatório
+            </button>
+          </div>
+        </div>
+        
+        <div id="grafico-pacotes"></div>
+        <div id="tabela-pacotes"></div>
+      </div>
     </section>
   </div>
 
@@ -898,12 +981,12 @@
           <input type="text" id="nomeCliente" placeholder="Digite o nome completo">
         </div>
         <div class="form-group">
-          <label class="form-label">WhatsApp</label>
-          <input type="tel" id="whatsCliente" placeholder="Digite o número com DDD">
+          <label class="form-label">WhatsApp (com DDD)</label>
+          <input type="tel" id="whatsCliente" placeholder="Ex: 11987654321">
         </div>
         <div class="form-group">
-          <label class="form-label">E-mail</label>
-          <input type="email" id="emailCliente" placeholder="Digite o e-mail (opcional)">
+          <label class="form-label">E-mail (opcional)</label>
+          <input type="email" id="emailCliente" placeholder="Digite o e-mail">
         </div>
         <div class="form-group">
           <label class="form-label">Observações</label>
@@ -919,6 +1002,12 @@
             </select>
           </div>
           <div class="form-group">
+            <label class="form-label">Desconto (R$)</label>
+            <input type="number" id="descontoProcedimento" step="0.01" min="0" placeholder="0,00">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
             <label class="form-label">Data</label>
             <input type="date" id="dataProcedimento">
           </div>
@@ -930,6 +1019,14 @@
         <button class="btn-primary btn-sm" onclick="adicionarProcedimentoCliente()">
           <i class="fas fa-plus"></i> Adicionar Procedimento
         </button>
+        
+        <div class="form-group">
+          <label class="form-label">Ou selecione um pacote:</label>
+          <select id="pacoteSelect" onchange="carregarDetalhesPacote()"></select>
+          <button class="btn-primary btn-sm" onclick="adicionarPacoteCliente()">
+            <i class="fas fa-box-open"></i> Adicionar Pacote
+          </button>
+        </div>
         
         <div id="listaProcedimentosCliente" style="margin-top:1rem;"></div>
       </div>
@@ -966,10 +1063,53 @@
           <label class="form-label">Descrição</label>
           <textarea id="descricaoProcedimento" rows="3" placeholder="Detalhes do procedimento"></textarea>
         </div>
+        <div class="form-group">
+          <label class="form-label">
+            <input type="checkbox" id="habilitadoProcedimento" checked>
+            Procedimento habilitado
+          </label>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn-danger" onclick="fecharModal('modalProcedimento')">Cancelar</button>
         <button class="btn-success" onclick="salvarProcedimento()">Salvar Procedimento</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Pacote -->
+  <div class="modal" id="modalPacote">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalPacoteTitulo">Novo Pacote</h3>
+        <button class="modal-close" onclick="fecharModal('modalPacote')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Nome do Pacote</label>
+          <input type="text" id="nomePacote" placeholder="Nome do pacote">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Preço Total (R$)</label>
+            <input type="number" id="precoPacote" step="0.01" min="0" placeholder="0,00">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Procedimentos Incluídos</label>
+          <select id="procedimentosPacote" multiple style="height: 150px;">
+            <!-- Preenchido dinamicamente -->
+          </select>
+          <small>Segure Ctrl para selecionar múltiplos</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descrição</label>
+          <textarea id="descricaoPacote" rows="3" placeholder="Descrição do pacote"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-danger" onclick="fecharModal('modalPacote')">Cancelar</button>
+        <button class="btn-success" onclick="salvarPacote()">Salvar Pacote</button>
       </div>
     </div>
   </div>
@@ -988,6 +1128,9 @@
         <button class="btn-info" id="btnWhatsApp">
           <i class="fab fa-whatsapp"></i> Enviar Mensagem
         </button>
+        <button class="btn-warning" id="btnFaltou">
+          <i class="fas fa-user-times"></i> Cliente Faltou
+        </button>
         <button class="btn-warning" id="btnEditarAgendamento">
           <i class="fas fa-edit"></i> Editar
         </button>
@@ -999,36 +1142,35 @@
   </div>
 
   <script>
-   // Variáveis globais
+    // Variáveis globais atualizadas
     let clientes = JSON.parse(localStorage.getItem("clientes")) || [];
     let procedimentos = JSON.parse(localStorage.getItem("procedimentos")) || [];
+    let pacotes = JSON.parse(localStorage.getItem("pacotes")) || [];
     let clienteEditandoIndex = null;
     let procedimentosTemp = [];
     let agendamentoEditando = null;
 
-
     // Inicialização
-        document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function() {
       atualizarDataAtual();
       carregarProcedimentosDropdown();
+      carregarPacotesDropdown();
       carregarDashboard();
       carregarAgendamentosDiarios();
       
-      
       // Configurar data padrão para hoje
-      const hoje = new Date();
-      const hojeStr = hoje.toISOString().split('T')[0];
-      document.getElementById('dataAgendamento').value = hojeStr;
-      document.getElementById('dataSemana').value = hojeStr;
+      const hoje = new Date().toISOString().split('T')[0];
+      document.getElementById('dataAgendamento').value = hoje;
+      document.getElementById('dataSemana').value = hoje;
       
-      const mesAtual = hoje.toISOString().slice(0, 7);
+      const mesAtual = new Date().toISOString().slice(0, 7);
       document.getElementById('dataMes').value = mesAtual;
       
       // Mostrar dashboard por padrão
       mostrar('dashboard');
     });
 
-    // Funções utilitárias - CORRIGIDAS
+    // Funções utilitárias
     function formatarData(dataStr) {
       if (!dataStr) return '';
       const [y, m, d] = dataStr.split('-');
@@ -1048,14 +1190,15 @@
     function salvarLocal() {
       localStorage.setItem("clientes", JSON.stringify(clientes));
       localStorage.setItem("procedimentos", JSON.stringify(procedimentos));
+      localStorage.setItem("pacotes", JSON.stringify(pacotes));
     }
-    
+
     // Funções de navegação
     function mostrar(secao) {
       document.querySelectorAll(".section").forEach(s => s.classList.add("hidden"));
       document.getElementById(secao).classList.remove("hidden");
       
-    // Atualizar dados específicos da seção quando aberta
+      // Atualizar dados específicos da seção quando aberta
       if (secao === 'clientes') {
         listarClientes();
       } else if (secao === 'dashboard') {
@@ -1066,7 +1209,6 @@
         carregarAgendamentosDiarios();
       }
     }
-
 
     function mudarAbaAgendamento(aba) {
       document.querySelectorAll('#agendamentos .tab').forEach(tab => tab.classList.remove('active'));
@@ -1109,6 +1251,15 @@
       clienteEditandoIndex = index;
       const modal = document.getElementById('modalCliente');
       
+      // Limpar formulário
+      document.getElementById('nomeCliente').value = '';
+      document.getElementById('whatsCliente').value = '';
+      document.getElementById('emailCliente').value = '';
+      document.getElementById('obsCliente').value = '';
+      document.getElementById('descontoProcedimento').value = '0';
+      procedimentosTemp = [];
+      atualizarListaProcedimentosModal();
+      
       if (index !== null) {
         // Modo edição
         document.getElementById('modalClienteTitulo').textContent = 'Editar Cliente';
@@ -1123,12 +1274,6 @@
       } else {
         // Modo novo cliente
         document.getElementById('modalClienteTitulo').textContent = 'Novo Cliente';
-        document.getElementById('nomeCliente').value = '';
-        document.getElementById('whatsCliente').value = '';
-        document.getElementById('emailCliente').value = '';
-        document.getElementById('obsCliente').value = '';
-        
-        procedimentosTemp = [];
       }
       
       atualizarListaProcedimentosModal();
@@ -1147,6 +1292,7 @@
         document.getElementById('precoProcedimento').value = procedimento.preco || '';
         document.getElementById('duracaoProcedimento').value = procedimento.duracao || '';
         document.getElementById('descricaoProcedimento').value = procedimento.descricao || '';
+        document.getElementById('habilitadoProcedimento').checked = procedimento.habilitado !== false;
       } else {
         // Modo novo procedimento
         document.getElementById('modalProcedimentoTitulo').textContent = 'Novo Procedimento';
@@ -1154,9 +1300,55 @@
         document.getElementById('precoProcedimento').value = '';
         document.getElementById('duracaoProcedimento').value = '';
         document.getElementById('descricaoProcedimento').value = '';
+        document.getElementById('habilitadoProcedimento').checked = true;
       }
       
       abrirModal('modalProcedimento');
+    }
+
+    function abrirModalPacote(index = null) {
+      const modal = document.getElementById('modalPacote');
+      
+      if (index !== null) {
+        document.getElementById('modalPacoteTitulo').textContent = 'Editar Pacote';
+        const pacote = pacotes[index];
+        
+        document.getElementById('nomePacote').value = pacote.nome;
+        document.getElementById('precoPacote').value = pacote.preco;
+        document.getElementById('descricaoPacote').value = pacote.descricao || '';
+        
+        // Preencher procedimentos do pacote
+        const selectProcedimentos = document.getElementById('procedimentosPacote');
+        selectProcedimentos.innerHTML = '';
+        procedimentos.forEach(proc => {
+          if (proc.habilitado !== false) {
+            const option = document.createElement('option');
+            option.value = proc.nome;
+            option.textContent = `${proc.nome} - ${formatarMoeda(proc.preco)}`;
+            option.selected = pacote.procedimentos.includes(proc.nome);
+            selectProcedimentos.appendChild(option);
+          }
+        });
+      } else {
+        document.getElementById('modalPacoteTitulo').textContent = 'Novo Pacote';
+        document.getElementById('nomePacote').value = '';
+        document.getElementById('precoPacote').value = '';
+        document.getElementById('descricaoPacote').value = '';
+        
+        // Preencher procedimentos disponíveis
+        const selectProcedimentos = document.getElementById('procedimentosPacote');
+        selectProcedimentos.innerHTML = '';
+        procedimentos.forEach(proc => {
+          if (proc.habilitado !== false) {
+            const option = document.createElement('option');
+            option.value = proc.nome;
+            option.textContent = `${proc.nome} - ${formatarMoeda(proc.preco)}`;
+            selectProcedimentos.appendChild(option);
+          }
+        });
+      }
+      
+      abrirModal('modalPacote');
     }
 
     function abrirModalAgendamento(clienteIndex, procedimentoIndex) {
@@ -1169,14 +1361,16 @@
         <div class="card">
           <div class="card-header">
             <h3>${cliente.nome}</h3>
-            <span class="badge ${procedimento.cancelado ? 'badge-danger' : new Date(procedimento.data + 'T' + procedimento.hora) < new Date() ? 'badge-success' : 'badge-primary'}">
-              ${procedimento.cancelado ? 'Cancelado' : (new Date(procedimento.data + 'T' + procedimento.hora) < new Date() ? 'Concluído' : 'Agendado')}
+            <span class="badge ${procedimento.cancelado ? 'badge-danger' : procedimento.faltou ? 'badge-warning' : new Date(procedimento.data + 'T' + procedimento.hora) < new Date() ? 'badge-success' : 'badge-primary'}">
+              ${procedimento.cancelado ? 'Cancelado' : procedimento.faltou ? 'Faltou' : (new Date(procedimento.data + 'T' + procedimento.hora) < new Date() ? 'Concluído' : 'Agendado')}
             </span>
           </div>
           <div class="card-body">
-            <p><strong>Procedimento:</strong> ${procedimento.procedimento}</p>
+            <p><strong>Procedimento:</strong> ${procedimento.procedimento} ${procedimento.pacote ? `<span class="package-badge">Pacote: ${procedimento.pacote}</span>` : ''}</p>
             <p><strong>Data:</strong> ${formatarData(procedimento.data)}</p>
             <p><strong>Hora:</strong> ${procedimento.hora}</p>
+            <p><strong>Duração:</strong> ${procedimento.duracao || '30'} minutos</p>
+            <p><strong>Valor:</strong> ${formatarMoeda(procedimento.precoComDesconto || procedimento.preco)} ${procedimento.desconto ? `(Desconto de ${formatarMoeda(procedimento.desconto)})` : ''}</p>
             <p><strong>WhatsApp:</strong> ${cliente.whatsapp}</p>
             ${cliente.email ? `<p><strong>E-mail:</strong> ${cliente.email}</p>` : ''}
             ${cliente.observacoes ? `<p><strong>Observações:</strong> ${cliente.observacoes}</p>` : ''}
@@ -1184,10 +1378,26 @@
         </div>
       `;
       
-      // Configurar botão do WhatsApp
+      // Configurar botão do WhatsApp com mensagem de confirmação
       document.getElementById('btnWhatsApp').onclick = () => {
-        const msg = encodeURIComponent(`Olá ${cliente.nome}, tudo bem? Aqui é da Clínica Francielly Rodrigues, estamos entrando em contato sobre seu agendamento para ${procedimento.procedimento} no dia ${formatarData(procedimento.data)} às ${procedimento.hora}.`);
+        const msg = encodeURIComponent(
+          `Olá ${cliente.nome}, tudo bem? Aqui é da Clínica Francielly Rodrigues.\n\n` +
+          `Seu agendamento para ${procedimento.procedimento} está marcado para:\n` +
+          `📅 ${formatarData(procedimento.data)}\n` +
+          `⏰ ${procedimento.hora}\n` +
+          `⏳ Duração: ${procedimento.duracao || '30'} minutos\n\n` +
+          `Por favor, confirme se poderá comparecer respondendo "SIM" ou "NÃO".\n\n` +
+          `Agradecemos sua confirmação!`
+        );
         window.open(`https://wa.me/${cliente.whatsapp}?text=${msg}`, '_blank');
+      };
+      
+      // Configurar botão de falta
+      document.getElementById('btnFaltou').onclick = () => {
+        if (confirm('Deseja marcar este cliente como faltante? Uma mensagem será enviada.')) {
+          marcarFalta(clienteIndex, procedimentoIndex);
+          fecharModal('modalAgendamento');
+        }
       };
       
       // Configurar botão de edição
@@ -1198,15 +1408,21 @@
       
       // Configurar botão de cancelamento
       document.getElementById('btnCancelarAgendamento').onclick = () => {
-        if (confirm('Deseja realmente cancelar este agendamento?')) {
+        if (confirm('Deseja realmente cancelar este agendamento? Uma mensagem será enviada ao cliente.')) {
           cancelarAgendamento(clienteIndex, procedimentoIndex);
           fecharModal('modalAgendamento');
         }
       };
       
-      // Esconder botão de cancelamento se já estiver cancelado
+      // Esconder botões conforme status
       if (procedimento.cancelado) {
         document.getElementById('btnCancelarAgendamento').style.display = 'none';
+        document.getElementById('btnFaltou').style.display = 'none';
+      } else if (procedimento.faltou) {
+        document.getElementById('btnFaltou').style.display = 'none';
+      } else if (new Date(procedimento.data + 'T' + procedimento.hora) < new Date()) {
+        document.getElementById('btnCancelarAgendamento').style.display = 'none';
+        document.getElementById('btnFaltou').style.display = 'none';
       }
       
       abrirModal('modalAgendamento');
@@ -1214,6 +1430,8 @@
 
     // Funções de clientes
     function listarClientes() {
+      verificarPacotesPendentes();
+      
       const lista = document.getElementById('listaClientes');
       lista.innerHTML = '';
       
@@ -1231,60 +1449,66 @@
         return ultimoB - ultimoA;
       });
       
-      clientesOrdenados.forEach((cliente, index) => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        
-        let procedimentosHtml = '<ul style="margin-top:10px;">';
-        (cliente.procedimentos || []).forEach((p, pIndex) => {
-          const dt = new Date(p.data + 'T' + p.hora);
-          let statusClass = 'status-scheduled';
-          let statusIcon = '<i class="far fa-clock"></i>';
-          
-          if (p.cancelado) {
-            statusClass = 'status-canceled';
-            statusIcon = '<i class="fas fa-ban"></i>';
-          } else if (dt < new Date()) {
-            statusClass = 'status-completed';
-            statusIcon = '<i class="fas fa-check"></i>';
-          }
-          
-          procedimentosHtml += `
-            <li style="margin-bottom:5px; display:flex; align-items:center;">
-              <span class="${statusClass}" style="margin-right:5px;">${statusIcon}</span>
-              <span>${p.procedimento} - ${formatarData(p.data)} às ${p.hora}</span>
-            </li>
-          `;
-        });
-        procedimentosHtml += '</ul>';
-        
-        card.innerHTML = `
-          <div class="card-header">
-            <div class="card-title">${cliente.nome}</div>
-            <div>
-              <span class="badge badge-primary">${cliente.procedimentos ? cliente.procedimentos.length : 0} procedimentos</span>
-            </div>
-          </div>
-          <div class="card-body">
-            <p><i class="fas fa-phone-alt"></i> ${cliente.whatsapp}</p>
-            ${cliente.email ? `<p><i class="fas fa-envelope"></i> ${cliente.email}</p>` : ''}
-            ${procedimentosHtml}
-          </div>
-          <div class="card-footer">
-            <button class="btn-info btn-sm" onclick="contatarCliente('${cliente.whatsapp}')">
-              <i class="fab fa-whatsapp"></i> WhatsApp
-            </button>
-            <button class="btn-primary btn-sm" onclick="abrirModalCliente(${index})">
-              <i class="fas fa-edit"></i> Editar
-            </button>
-            <button class="btn-danger btn-sm" onclick="excluirCliente(${index})">
-              <i class="fas fa-trash"></i> Excluir
-            </button>
-          </div>
-        `;
-        
-        lista.appendChild(card);
-      });
+      clientesOrdenados.forEach((clienteOrdenado) => {
+  const indexOriginal = clientes.findIndex(c => c.whatsapp === clienteOrdenado.whatsapp);
+
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  let procedimentosHtml = '<ul style="margin-top:10px;">';
+  (clienteOrdenado.procedimentos || []).forEach((p) => {
+    const dt = new Date(p.data + 'T' + p.hora);
+    let statusClass = 'status-scheduled';
+    let statusIcon = '<i class="far fa-clock"></i>';
+
+    if (p.cancelado) {
+      statusClass = 'status-canceled';
+      statusIcon = '<i class="fas fa-ban"></i>';
+    } else if (p.faltou) {
+      statusClass = 'status-missed';
+      statusIcon = '<i class="fas fa-user-times"></i>';
+    } else if (dt < new Date()) {
+      statusClass = 'status-completed';
+      statusIcon = '<i class="fas fa-check"></i>';
+    }
+
+    procedimentosHtml += `
+      <li style="margin-bottom:5px; display:flex; align-items:center;">
+        <span class="${statusClass}" style="margin-right:5px;">${statusIcon}</span>
+        <span>${p.procedimento} ${p.pacote ? `<span class="package-badge">${p.pacote}</span>` : ''} - ${formatarData(p.data)} às ${p.hora}</span>
+      </li>
+    `;
+  });
+  procedimentosHtml += '</ul>';
+
+  card.innerHTML = `
+    <div class="card-header">
+      <div class="card-title">${clienteOrdenado.nome}</div>
+      <div>
+        <span class="badge badge-primary">${clienteOrdenado.procedimentos ? clienteOrdenado.procedimentos.length : 0} procedimentos</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <p><i class="fas fa-phone-alt"></i> ${clienteOrdenado.whatsapp}</p>
+      ${clienteOrdenado.email ? `<p><i class="fas fa-envelope"></i> ${clienteOrdenado.email}</p>` : ''}
+      ${procedimentosHtml}
+    </div>
+    <div class="card-footer">
+      <button class="btn-info btn-sm" onclick="contatarCliente('${clienteOrdenado.whatsapp}')">
+        <i class="fab fa-whatsapp"></i> WhatsApp
+      </button>
+      <button class="btn-primary btn-sm" onclick="abrirModalCliente(${indexOriginal})">
+        <i class="fas fa-edit"></i> Editar
+      </button>
+      <button class="btn-danger btn-sm" onclick="excluirCliente(${indexOriginal})">
+        <i class="fas fa-trash"></i> Excluir
+      </button>
+    </div>
+  `;
+
+  lista.appendChild(card);
+});
+
     }
 
     function filtrarClientes() {
@@ -1299,7 +1523,7 @@
 
     function salvarCliente() {
       const nome = document.getElementById('nomeCliente').value.trim();
-      const whatsapp = document.getElementById('whatsCliente').value.trim();
+      let whatsapp = document.getElementById('whatsCliente').value.trim().replace(/\D/g, '');
       const email = document.getElementById('emailCliente').value.trim();
       const observacoes = document.getElementById('obsCliente').value.trim();
       
@@ -1309,10 +1533,13 @@
         return;
       }
       
-      if (!whatsapp) {
-        alert('Por favor, informe o número do WhatsApp.');
+      if (!whatsapp || whatsapp.length < 11) {
+        alert('Por favor, informe um número de WhatsApp válido com DDD.');
         return;
       }
+      
+      // Formatar WhatsApp
+      whatsapp = '+' + whatsapp;
       
       if (procedimentosTemp.length === 0) {
         alert('Por favor, adicione pelo menos um procedimento para o cliente.');
@@ -1363,22 +1590,55 @@
       select.innerHTML = '<option value="">Selecione um procedimento</option>';
       selectFiltro.innerHTML = '<option value="">Todos os procedimentos</option>';
       
-      // Adicionar procedimentos
+      // Adicionar procedimentos habilitados
       procedimentos.forEach(p => {
-        const option = document.createElement('option');
-        option.value = p.nome;
-        option.textContent = `${p.nome} - ${formatarMoeda(p.preco)}`;
-        select.appendChild(option.cloneNode(true));
-        
-        // Para o select de filtro também
-        selectFiltro.appendChild(option);
+        if (p.habilitado !== false) {
+          const option = document.createElement('option');
+          option.value = p.nome;
+          option.textContent = `${p.nome} - ${formatarMoeda(p.preco)} (${p.duracao || 30} min)`;
+          select.appendChild(option.cloneNode(true));
+          
+          // Para o select de filtro também
+          selectFiltro.appendChild(option);
+        }
       });
+    }
+
+    function carregarPacotesDropdown() {
+      const select = document.getElementById('pacoteSelect');
+      select.innerHTML = '<option value="">Selecione um pacote (opcional)</option>';
+      
+      pacotes.forEach(pacote => {
+        if (pacote.habilitado !== false) {
+          const option = document.createElement('option');
+          option.value = pacote.nome;
+          option.textContent = `${pacote.nome} - ${formatarMoeda(pacote.preco)} (${pacote.procedimentos.length} procedimentos)`;
+          select.appendChild(option);
+        }
+      });
+    }
+
+    function carregarDetalhesPacote() {
+      const pacoteNome = document.getElementById('pacoteSelect').value;
+      if (!pacoteNome) return;
+      
+      const pacote = pacotes.find(p => p.nome === pacoteNome);
+      if (pacote) {
+        alert(`Pacote ${pacote.nome}:\n\n` +
+              `- ${pacote.procedimentos.join('\n- ')}\n\n` +
+              `Preço total: ${formatarMoeda(pacote.preco)}\n` +
+              `(Economia de aproximadamente ${formatarMoeda(pacote.procedimentos.reduce((total, procNome) => {
+                const proc = procedimentos.find(p => p.nome === procNome);
+                return total + (proc ? proc.preco : 0);
+              }, 0) - pacote.preco)})`);
+      }
     }
 
     function adicionarProcedimentoCliente() {
       const procedimentoNome = document.getElementById('procedimentoSelect').value;
       const data = document.getElementById('dataProcedimento').value;
       const hora = document.getElementById('horaProcedimento').value;
+      const desconto = parseFloat(document.getElementById('descontoProcedimento').value) || 0;
       
       if (!procedimentoNome || !data || !hora) {
         alert('Por favor, preencha todos os campos do procedimento.');
@@ -1386,44 +1646,124 @@
       }
       
       // Verificar conflito de horário
-      if (verificarConflitoAgendamento(data, hora)) {
+      const procedimentoCompleto = procedimentos.find(p => p.nome === procedimentoNome);
+      const duracao = procedimentoCompleto ? procedimentoCompleto.duracao : 30;
+      
+      if (verificarConflitoAgendamento(data, hora, duracao)) {
         alert('Já existe um agendamento para este horário. Por favor, escolha outro horário.');
         return;
       }
       
-      // Encontrar o procedimento completo para pegar o preço e duração
-      const procedimentoCompleto = procedimentos.find(p => p.nome === procedimentoNome);
+      const precoOriginal = procedimentoCompleto ? procedimentoCompleto.preco : 0;
+      const precoComDesconto = precoOriginal - desconto;
       
       procedimentosTemp.push({
         procedimento: procedimentoNome,
         data,
         hora,
-        preco: procedimentoCompleto ? procedimentoCompleto.preco : 0,
-        duracao: procedimentoCompleto ? procedimentoCompleto.duracao : 30,
-        cancelado: false
+        preco: precoOriginal,
+        precoComDesconto,
+        desconto,
+        duracao,
+        cancelado: false,
+        faltou: false
       });
       
       // Limpar campos
       document.getElementById('dataProcedimento').value = '';
       document.getElementById('horaProcedimento').value = '';
+      document.getElementById('descontoProcedimento').value = '0';
       
       atualizarListaProcedimentosModal();
     }
 
-    function verificarConflitoAgendamento(data, hora) {
-      // Verificar se já existe agendamento para este horário
-      for (const cliente of clientes) {
-        for (const proc of cliente.procedimentos || []) {
-          if (proc.data === data && proc.hora === hora && !proc.cancelado) {
-            return true;
+    function adicionarPacoteCliente() {
+      const pacoteNome = document.getElementById('pacoteSelect').value;
+      const data = document.getElementById('dataProcedimento').value;
+      const hora = document.getElementById('horaProcedimento').value;
+      
+      if (!pacoteNome || !data || !hora) {
+        alert('Por favor, preencha todos os campos para adicionar o pacote.');
+        return;
+      }
+      
+      const pacote = pacotes.find(p => p.nome === pacoteNome);
+      if (!pacote) return;
+      
+      // Verificar conflito para o primeiro procedimento
+      const primeiroProcedimento = procedimentos.find(p => p.nome === pacote.procedimentos[0]);
+      const duracao = primeiroProcedimento ? primeiroProcedimento.duracao : 30;
+      
+      if (verificarConflitoAgendamento(data, hora, duracao)) {
+        alert('Já existe um agendamento para o horário do primeiro procedimento. Por favor, escolha outro horário.');
+        return;
+      }
+      
+      // Adiciona o primeiro procedimento com data/hora, os outros sem
+      pacote.procedimentos.forEach((procNome, index) => {
+        const procedimentoCompleto = procedimentos.find(p => p.nome === procNome);
+        const precoUnitario = pacote.preco / pacote.procedimentos.length;
+        
+        procedimentosTemp.push({
+          procedimento: procNome,
+          data: index === 0 ? data : '',
+          hora: index === 0 ? hora : '',
+          preco: procedimentoCompleto ? procedimentoCompleto.preco : 0,
+          precoComDesconto: precoUnitario,
+          desconto: procedimentoCompleto ? procedimentoCompleto.preco - precoUnitario : 0,
+          duracao: procedimentoCompleto ? procedimentoCompleto.duracao : 30,
+          pacote: pacote.nome,
+          cancelado: false,
+          faltou: false
+        });
+      });
+      
+      // Limpar campos
+      document.getElementById('dataProcedimento').value = '';
+      document.getElementById('horaProcedimento').value = '';
+      document.getElementById('pacoteSelect').value = '';
+      
+      alert(`Pacote ${pacote.nome} adicionado. O primeiro procedimento está agendado, os demais precisarão ser agendados posteriormente.`);
+      atualizarListaProcedimentosModal();
+    }
+
+    function verificarConflitoAgendamento(data, hora, duracao, ignorarIndex = null) {
+      const inicio = new Date(`${data}T${hora}`);
+      const fim = new Date(inicio.getTime() + (duracao || 30) * 60000);
+      
+      // Verificar conflitos com agendamentos existentes
+      for (const [cIndex, cliente] of clientes.entries()) {
+        for (const [pIndex, proc] of (cliente.procedimentos || []).entries()) {
+          if (ignorarIndex && ignorarIndex.clienteIndex === cIndex && ignorarIndex.procedimentoIndex === pIndex) {
+            continue;
+          }
+          
+          if (!proc.cancelado && !proc.faltou) {
+            const procInicio = new Date(`${proc.data}T${proc.hora}`);
+            const procDuracao = proc.duracao || 30;
+            const procFim = new Date(procInicio.getTime() + procDuracao * 60000);
+            
+            if ((inicio >= procInicio && inicio < procFim) || 
+                (fim > procInicio && fim <= procFim) ||
+                (inicio <= procInicio && fim >= procFim)) {
+              return true;
+            }
           }
         }
       }
       
-      // Verificar também os procedimentos temporários que estão sendo adicionados
-      for (const proc of procedimentosTemp) {
-        if (proc.data === data && proc.hora === hora && !proc.cancelado) {
-          return true;
+      // Verificar conflitos com procedimentos temporários
+      for (const [index, proc] of procedimentosTemp.entries()) {
+        if (ignorarIndex !== index && proc.data && proc.hora && !proc.cancelado && !proc.faltou) {
+          const procInicio = new Date(`${proc.data}T${proc.hora}`);
+          const procDuracao = proc.duracao || 30;
+          const procFim = new Date(procInicio.getTime() + procDuracao * 60000);
+          
+          if ((inicio >= procInicio && inicio < procFim) || 
+              (fim > procInicio && fim <= procFim) ||
+              (inicio <= procInicio && fim >= procFim)) {
+            return true;
+          }
         }
       }
       
@@ -1445,14 +1785,17 @@
         div.style.marginBottom = '10px';
         div.style.padding = '10px';
         
-        const dt = new Date(proc.data + 'T' + proc.hora);
+        const dt = proc.data ? new Date(proc.data + 'T' + proc.hora) : null;
         let statusClass = 'status-scheduled';
-        let statusText = 'Agendado';
+        let statusText = proc.data ? 'Agendado' : 'Não agendado';
         
         if (proc.cancelado) {
           statusClass = 'status-canceled';
           statusText = 'Cancelado';
-        } else if (dt < new Date()) {
+        } else if (proc.faltou) {
+          statusClass = 'status-missed';
+          statusText = 'Faltou';
+        } else if (dt && dt < new Date()) {
           statusClass = 'status-completed';
           statusText = 'Concluído';
         }
@@ -1462,7 +1805,8 @@
             <div>
               <span class="${statusClass}"></span>
               <strong>${proc.procedimento}</strong>
-              <span style="margin-left:10px;">${formatarData(proc.data)} às ${proc.hora}</span>
+              ${proc.pacote ? `<span class="package-badge">${proc.pacote}</span>` : ''}
+              <span style="margin-left:10px;">${proc.data ? `${formatarData(proc.data)} às ${proc.hora}` : 'Sem data agendada'}</span>
             </div>
             <div>
               <button class="btn-danger btn-sm" onclick="removerProcedimentoTemp(${index})">
@@ -1471,7 +1815,11 @@
             </div>
           </div>
           <div style="margin-top:5px;">
-            <small>Preço: ${formatarMoeda(proc.preco)} | Duração: ${proc.duracao} min</small>
+            <small>
+              Preço: ${formatarMoeda(proc.precoComDesconto || proc.preco)} 
+              ${proc.desconto ? `(Desconto de ${formatarMoeda(proc.desconto)})` : ''} | 
+              Duração: ${proc.duracao || 30} min
+            </small>
           </div>
         `;
         
@@ -1480,7 +1828,17 @@
     }
 
     function removerProcedimentoTemp(index) {
-      procedimentosTemp.splice(index, 1);
+      // Se for um procedimento de pacote, perguntar se quer remover todos
+      const proc = procedimentosTemp[index];
+      if (proc.pacote) {
+        if (confirm(`Este procedimento faz parte do pacote "${proc.pacote}". Deseja remover todos os procedimentos deste pacote?`)) {
+          procedimentosTemp = procedimentosTemp.filter(p => p.pacote !== proc.pacote);
+        } else {
+          procedimentosTemp.splice(index, 1);
+        }
+      } else {
+        procedimentosTemp.splice(index, 1);
+      }
       atualizarListaProcedimentosModal();
     }
 
@@ -1500,18 +1858,24 @@
         
         card.innerHTML = `
           <div class="card-header">
-            <div class="card-title">${proc.nome}</div>
+            <div class="card-title">${proc.nome} ${proc.habilitado === false ? '<span style="color:#dc3545;">(Desabilitado)</span>' : ''}</div>
             <div>
               <span class="badge badge-primary">${formatarMoeda(proc.preco)}</span>
+              <span class="badge ${proc.habilitado === false ? 'badge-danger' : 'badge-success'}" style="margin-left:5px;">
+                ${proc.habilitado === false ? 'Inativo' : 'Ativo'}
+              </span>
             </div>
           </div>
           <div class="card-body">
-            <p><strong>Duração:</strong> ${proc.duracao || '--'} minutos</p>
+            <p><strong>Duração:</strong> ${proc.duracao || '30'} minutos</p>
             ${proc.descricao ? `<p><strong>Descrição:</strong> ${proc.descricao}</p>` : ''}
           </div>
           <div class="card-footer">
             <button class="btn-primary btn-sm" onclick="abrirModalProcedimento(${index})">
               <i class="fas fa-edit"></i> Editar
+            </button>
+            <button class="${proc.habilitado === false ? 'btn-success' : 'btn-warning'} btn-sm" onclick="toggleHabilitarProcedimento(${index})">
+              <i class="fas ${proc.habilitado === false ? 'fa-check' : 'fa-ban'}"></i> ${proc.habilitado === false ? 'Habilitar' : 'Desabilitar'}
             </button>
             <button class="btn-danger btn-sm" onclick="excluirProcedimento(${index})">
               <i class="fas fa-trash"></i> Excluir
@@ -1521,6 +1885,14 @@
         
         lista.appendChild(card);
       });
+    }
+
+    function toggleHabilitarProcedimento(index) {
+      procedimentos[index].habilitado = !procedimentos[index].habilitado;
+      salvarLocal();
+      listarProcedimentos();
+      carregarProcedimentosDropdown();
+      carregarPacotesDropdown();
     }
 
     function filtrarProcedimentos() {
@@ -1538,6 +1910,7 @@
       const preco = parseFloat(document.getElementById('precoProcedimento').value);
       const duracao = parseInt(document.getElementById('duracaoProcedimento').value) || 30;
       const descricao = document.getElementById('descricaoProcedimento').value.trim();
+      const habilitado = document.getElementById('habilitadoProcedimento').checked;
       
       if (!nome || isNaN(preco)) {
         alert('Por favor, informe pelo menos o nome e o preço do procedimento.');
@@ -1548,7 +1921,8 @@
         nome,
         preco,
         duracao,
-        descricao
+        descricao,
+        habilitado
       };
       
       // Se estiver editando, encontrar o índice
@@ -1559,6 +1933,17 @@
         const index = procedimentos.findIndex(p => p.nome === nomeOriginal);
         
         if (index !== -1) {
+          // Atualizar procedimentos em todos os clientes
+          clientes.forEach(cliente => {
+            cliente.procedimentos.forEach(proc => {
+              if (proc.procedimento === nomeOriginal) {
+                proc.procedimento = nome;
+                proc.preco = preco;
+                proc.duracao = duracao;
+              }
+            });
+          });
+          
           procedimentos[index] = procedimento;
         }
       } else {
@@ -1570,21 +1955,66 @@
       fecharModal('modalProcedimento');
       listarProcedimentos();
       carregarProcedimentosDropdown();
+      carregarPacotesDropdown();
       carregarDashboard();
     }
 
+    function salvarPacote() {
+      const nome = document.getElementById('nomePacote').value.trim();
+      const preco = parseFloat(document.getElementById('precoPacote').value);
+      const descricao = document.getElementById('descricaoPacote').value.trim();
+      
+      const selectProcedimentos = document.getElementById('procedimentosPacote');
+      const procedimentosSelecionados = Array.from(selectProcedimentos.selectedOptions)
+        .map(option => option.value);
+      
+      if (!nome || isNaN(preco)) {
+        alert('Por favor, informe pelo menos o nome e o preço do pacote.');
+        return;
+      }
+      
+      if (procedimentosSelecionados.length === 0) {
+        alert('Por favor, selecione pelo menos um procedimento para o pacote.');
+        return;
+      }
+      
+      const pacote = {
+        nome,
+        preco,
+        descricao,
+        procedimentos: procedimentosSelecionados,
+        habilitado: true
+      };
+      
+      const tituloModal = document.getElementById('modalPacoteTitulo').textContent;
+      if (tituloModal.startsWith('Editar')) {
+        const nomeOriginal = tituloModal.replace('Editar Pacote - ', '').trim();
+        const index = pacotes.findIndex(p => p.nome === nomeOriginal);
+        if (index !== -1) {
+          pacotes[index] = pacote;
+        }
+      } else {
+        pacotes.push(pacote);
+      }
+      
+      salvarLocal();
+      fecharModal('modalPacote');
+      carregarPacotesDropdown();
+    }
+
     function excluirProcedimento(index) {
-      if (confirm('Tem certeza que deseja excluir este procedimento? Isso não afetará os agendamentos já existentes.')) {
+      if (confirm('Tem certeza que deseja excluir este procedimento? Isso não afetará os agendamentos já existentes, mas o procedimento não estará mais disponível para novos agendamentos.')) {
         procedimentos.splice(index, 1);
         salvarLocal();
         listarProcedimentos();
         carregarProcedimentosDropdown();
+        carregarPacotesDropdown();
         carregarDashboard();
       }
     }
 
     // Funções de agendamentos
-    function carregarAgendamentosDiarios() {
+       function carregarAgendamentosDiarios() {
       const dataSelecionada = document.getElementById('dataAgendamento').value;
       const procedimentoFiltro = document.getElementById('filtroProcedimento').value;
       
@@ -1596,57 +2026,110 @@
       horasColuna.innerHTML = '';
       agendamentosColuna.innerHTML = '';
       
-      // Criar coluna de horas (7h às 21h)
+      // Criar coluna de horas (7h às 21h) em intervalos de 30 minutos
       for (let h = 7; h <= 21; h++) {
-        const hora = h.toString().padStart(2, '0') + ':00';
-        
-        // Coluna de horas
-        const horaDiv = document.createElement('div');
-        horaDiv.className = 'time-slot';
-        horaDiv.textContent = hora;
-        horasColuna.appendChild(horaDiv);
-        
-        // Coluna de agendamentos
-        const slotDiv = document.createElement('div');
-        slotDiv.className = 'schedule-slot';
-        agendamentosColuna.appendChild(slotDiv);
+        for (let m = 0; m < 60; m += 30) {
+          const hora = h.toString().padStart(2, '0') + ':' + m.toString().padStart(2, '0');
+          
+          // Coluna de horas
+          const horaDiv = document.createElement('div');
+          horaDiv.className = 'time-slot';
+          horaDiv.textContent = hora;
+          horasColuna.appendChild(horaDiv);
+          
+          // Coluna de agendamentos
+          const slotDiv = document.createElement('div');
+          slotDiv.className = 'schedule-slot';
+          agendamentosColuna.appendChild(slotDiv);
+        }
       }
       
-      // Preencher agendamentos
+ // Criar coluna de horas (7h às 21h) em intervalos de 30 minutos
+      for (let h = 7; h <= 21; h++) {
+        for (let m = 0; m < 60; m += 30) {
+          const hora = h.toString().padStart(2, '0') + ':' + m.toString().padStart(2, '0');
+          
+          // Coluna de horas
+          const horaDiv = document.createElement('div');
+          horaDiv.className = 'time-slot';
+          horaDiv.textContent = hora;
+          horasColuna.appendChild(horaDiv);
+          
+          // Coluna de agendamentos
+          const slotDiv = document.createElement('div');
+          slotDiv.className = 'schedule-slot';
+          agendamentosColuna.appendChild(slotDiv);
+        }
+      }
+      
+      // Preencher agendamentos considerando a duração
       clientes.forEach((cliente, clienteIndex) => {
         cliente.procedimentos.forEach((proc, procIndex) => {
           if (proc.data === dataSelecionada && 
-              (!procedimentoFiltro || proc.procedimento === procedimentoFiltro)) {
+              (!procedimentoFiltro || proc.procedimento === procedimentoFiltro) &&
+              !proc.cancelado) {
             
             const hora = proc.hora;
-            const horaNum = parseInt(hora.split(':')[0]);
+            const [horaStr, minutoStr] = hora.split(':');
+            const horaNum = parseInt(horaStr);
+            const minutoNum = parseInt(minutoStr);
             
             if (horaNum >= 7 && horaNum <= 21) {
-              const slotIndex = horaNum - 7;
-              const slotDiv = agendamentosColuna.children[slotIndex];
+              // Calcular slots necessários baseado na duração
+              const procedimentoCompleto = procedimentos.find(p => p.nome === proc.procedimento) || {};
+              const duracao = proc.duracao || procedimentoCompleto.duracao || 30;
+              const slotsNecessarios = Math.ceil(duracao / 30);
+              const slotIndex = ((horaNum - 7) * 2) + (minutoNum >= 30 ? 1 : 0);
               
-              let appointmentClass = 'appointment-primary';
-              if (proc.cancelado) {
-                appointmentClass = 'appointment-danger';
-              } else if (new Date(proc.data + 'T' + proc.hora) < new Date()) {
-                appointmentClass = 'appointment-success';
+              if (slotIndex >= 0 && slotIndex + slotsNecessarios <= 30) { // 7h-21h em slots de 30min (28 slots)
+                // Verificar se já existe um agendamento nestes slots
+                let slotDisponivel = true;
+                for (let i = 0; i < slotsNecessarios; i++) {
+                  if (agendamentosColuna.children[slotIndex + i].querySelector('.appointment') !== null) {
+                    slotDisponivel = false;
+                    break;
+                  }
+                }
+                
+                if (slotDisponivel) {
+                  let appointmentClass = 'appointment-primary';
+                  if (proc.faltou) {
+                    appointmentClass = 'appointment-warning';
+                  } else if (new Date(proc.data + 'T' + proc.hora) < new Date()) {
+                    appointmentClass = 'appointment-success';
+                  }
+                  
+                  // Criar o appointment no primeiro slot
+                  const appointmentDiv = document.createElement('div');
+                  appointmentDiv.className = `appointment ${appointmentClass}`;
+                  appointmentDiv.style.height = `${slotsNecessarios * 60}px`; // Altura baseada em slots
+                  appointmentDiv.innerHTML = `
+                    <div class="appointment-title">${cliente.nome}</div>
+                    <div class="appointment-time">${proc.procedimento} - ${proc.hora}</div>
+                    <div class="appointment-duration">${duracao} min</div>
+                    ${proc.pacote ? `<div class="appointment-package"><small>Pacote: ${proc.pacote}</small></div>` : ''}
+                  `;
+                  appointmentDiv.onclick = () => abrirModalAgendamento(clienteIndex, procIndex);
+                  
+                  // Adicionar ao primeiro slot e remover dos slots seguintes
+                  for (let i = 0; i < slotsNecessarios; i++) {
+                    if (i === 0) {
+                      agendamentosColuna.children[slotIndex + i].appendChild(appointmentDiv);
+                    } else {
+                      // Para slots seguintes, apenas marcar como ocupado
+                      const ocupadoDiv = document.createElement('div');
+                      ocupadoDiv.className = 'appointment-occupied';
+                      ocupadoDiv.style.height = '100%';
+                      agendamentosColuna.children[slotIndex + i].appendChild(ocupadoDiv);
+                    }
+                  }
+                }
               }
-              
-              const appointmentDiv = document.createElement('div');
-              appointmentDiv.className = `appointment ${appointmentClass}`;
-              appointmentDiv.innerHTML = `
-                <div class="appointment-title">${cliente.nome}</div>
-                <div class="appointment-time">${proc.procedimento} - ${proc.hora}</div>
-              `;
-              appointmentDiv.onclick = () => abrirModalAgendamento(clienteIndex, procIndex);
-              
-              slotDiv.appendChild(appointmentDiv);
             }
           }
         });
       });
     }
-
     function carregarAgendamentosSemanais() {
       const dataInicio = new Date(document.getElementById('dataSemana').value);
       if (isNaN(dataInicio.getTime())) return;
@@ -1700,7 +2183,7 @@
         
         clientes.forEach(cliente => {
           cliente.procedimentos.forEach(proc => {
-            if (proc.data === dataStr) {
+            if (proc.data === dataStr && !proc.cancelado) {
               agendamentosDia.push({
                 cliente,
                 proc,
@@ -1724,8 +2207,8 @@
             agDiv.style.fontSize = '0.9rem';
             
             let statusClass = 'status-scheduled';
-            if (ag.proc.cancelado) {
-              statusClass = 'status-canceled';
+            if (ag.proc.faltou) {
+              statusClass = 'status-missed';
             } else if (new Date(ag.proc.data + 'T' + ag.proc.hora) < new Date()) {
               statusClass = 'status-completed';
             }
@@ -1736,6 +2219,7 @@
                 <span>${ag.proc.procedimento}</span>
               </div>
               <div>${ag.cliente.nome}</div>
+              ${ag.proc.pacote ? `<div><small>Pacote: ${ag.proc.pacote}</small></div>` : ''}
             `;
             
             diaDiv.appendChild(agDiv);
@@ -1769,7 +2253,7 @@
         clientes.forEach(cliente => {
           cliente.procedimentos.forEach(proc => {
             const [procAno, procMes, procDia] = proc.data.split('-');
-            if (procAno === ano && procMes === mes) {
+            if (procAno === ano && procMes === mes && !proc.cancelado) {
               if (!agendamentosPorDia[procDia]) {
                 agendamentosPorDia[procDia] = [];
               }
@@ -1868,29 +2352,79 @@
       document.getElementById('obsCliente').value = cliente.observacoes || '';
       
       // Criar lista de procedimentos com apenas o procedimento sendo editado
-      procedimentosTemp = [{
+      procedimentosTemp = cliente.procedimentos.filter((_, i) => i !== procedimentoIndex);
+      procedimentosTemp.push({
         ...procedimento,
         editando: true,
         originalIndex: procedimentoIndex
-      }];
+      });
       
       atualizarListaProcedimentosModal();
       abrirModal('modalCliente');
     }
 
     function cancelarAgendamento(clienteIndex, procedimentoIndex) {
-      clientes[clienteIndex].procedimentos[procedimentoIndex].cancelado = true;
-      salvarLocal();
-      
-      // Atualizar visualização
-      const abaAtiva = document.querySelector('#agendamentos .tab.active').getAttribute('onclick');
-      if (abaAtiva.includes('diario')) {
-        carregarAgendamentosDiarios();
-      } else if (abaAtiva.includes('semanal')) {
-        carregarAgendamentosSemanais();
+      if (confirm('Deseja realmente cancelar este agendamento? Uma mensagem será enviada ao cliente.')) {
+        const cliente = clientes[clienteIndex];
+        const proc = cliente.procedimentos[procedimentoIndex];
+        
+        // Marcar como cancelado
+        proc.cancelado = true;
+        proc.canceladoEm = new Date().toISOString();
+        
+        // Enviar mensagem de cancelamento
+        const msg = encodeURIComponent(
+          `Olá ${cliente.nome}, lamentamos informar que seu agendamento para ${proc.procedimento} ` +
+          `no dia ${formatarData(proc.data)} às ${proc.hora} foi cancelado.\n\n` +
+          `Caso queira reagendar, por favor entre em contato conosco.`
+        );
+        window.open(`https://wa.me/${cliente.whatsapp}?text=${msg}`, '_blank');
+        
+        salvarLocal();
+        
+        // Atualizar visualização
+        const abaAtiva = document.querySelector('#agendamentos .tab.active').getAttribute('onclick');
+        if (abaAtiva.includes('diario')) {
+          carregarAgendamentosDiarios();
+        } else if (abaAtiva.includes('semanal')) {
+          carregarAgendamentosSemanais();
+        } else if (abaAtiva.includes('mensal')) {
+          carregarAgendamentosMensais();
+        }
+        
+        carregarDashboard();
       }
-      
-      carregarDashboard();
+    }
+
+    function marcarFalta(clienteIndex, procedimentoIndex) {
+      if (confirm('Deseja marcar este cliente como faltante? Uma mensagem será enviada.')) {
+        const cliente = clientes[clienteIndex];
+        const proc = cliente.procedimentos[procedimentoIndex];
+        
+        // Marcar como faltou
+        proc.faltou = true;
+        proc.faltouEm = new Date().toISOString();
+        
+        // Enviar mensagem de falta
+        const msg = encodeURIComponent(
+          `Olá ${cliente.nome}, notamos que você não compareceu ao seu agendamento para ${proc.procedimento} ` +
+          `no dia ${formatarData(proc.data)} às ${proc.hora}.\n\n` +
+          `Por favor, entre em contato para reagendarmos seu procedimento.`
+        );
+        window.open(`https://wa.me/${cliente.whatsapp}?text=${msg}`, '_blank');
+        
+        salvarLocal();
+        
+        // Atualizar visualização
+        const abaAtiva = document.querySelector('#agendamentos .tab.active').getAttribute('onclick');
+        if (abaAtiva.includes('diario')) {
+          carregarAgendamentosDiarios();
+        } else if (abaAtiva.includes('semanal')) {
+          carregarAgendamentosSemanais();
+        }
+        
+        carregarDashboard();
+      }
     }
 
     // Funções do dashboard
@@ -1901,19 +2435,22 @@
       // Total de agendamentos hoje
       const hoje = new Date().toISOString().split('T')[0];
       const agendamentosHoje = clientes.reduce((total, cliente) => {
-        return total + (cliente.procedimentos || []).filter(p => p.data === hoje && !p.cancelado).length;
+        return total + (cliente.procedimentos || []).filter(p => p.data === hoje && !p.cancelado && !p.faltou).length;
       }, 0);
       document.getElementById('total-agendamentos').textContent = agendamentosHoje;
       
-      // Total de procedimentos
-      document.getElementById('total-procedimentos').textContent = procedimentos.length;
+      // Total de procedimentos (habilitados)
+      document.getElementById('total-procedimentos').textContent = procedimentos.filter(p => p.habilitado !== false).length;
       
-      // Faturamento mensal
+      // Faturamento mensal (considerando apenas concluídos)
       const mesAtual = new Date().toISOString().slice(0, 7);
       const faturamento = clientes.reduce((total, cliente) => {
         (cliente.procedimentos || []).forEach(p => {
-          if (p.data.startsWith(mesAtual) && !p.cancelado) {
-            total += p.preco || 0;
+          const dt = new Date(p.data + 'T' + p.hora);
+          if (p.data.startsWith(mesAtual)) {
+            if (!p.cancelado && !p.faltou && dt < new Date()) {
+              total += p.precoComDesconto || p.preco || 0;
+            }
           }
         });
         return total;
@@ -1933,7 +2470,7 @@
       
       clientes.forEach(cliente => {
         (cliente.procedimentos || []).forEach(proc => {
-          if (proc.data === hoje && !proc.cancelado) {
+          if (proc.data === hoje && !proc.cancelado && !proc.faltou) {
             agendamentos.push({
               cliente,
               proc
@@ -1970,8 +2507,10 @@
             <span class="badge ${statusClass === 'status-scheduled' ? 'badge-primary' : 'badge-success'}">${statusText}</span>
           </div>
           <div class="card-body">
-            <p><strong>Procedimento:</strong> ${ag.proc.procedimento}</p>
+            <p><strong>Procedimento:</strong> ${ag.proc.procedimento} ${ag.proc.pacote ? `<span class="package-badge">${ag.proc.pacote}</span>` : ''}</p>
             <p><strong>WhatsApp:</strong> ${ag.cliente.whatsapp}</p>
+            <p><strong>Duração:</strong> ${ag.proc.duracao || '30'} min</p>
+            <p><strong>Valor:</strong> ${formatarMoeda(ag.proc.precoComDesconto || ag.proc.preco)} ${ag.proc.desconto ? `(Desconto de ${formatarMoeda(ag.proc.desconto)})` : ''}</p>
           </div>
           <div class="card-footer">
             <button class="btn-info btn-sm" onclick="contatarCliente('${ag.cliente.whatsapp}')">
@@ -1987,7 +2526,46 @@
       });
     }
 
-    // Funções de relatórios (simuladas)
+    // Funções para verificar pacotes pendentes
+    function verificarPacotesPendentes() {
+      const hoje = new Date().toISOString().split('T')[0];
+      
+      clientes.forEach(cliente => {
+        const pacotesPendentes = {};
+        
+        // Agrupa procedimentos por pacote
+        cliente.procedimentos.forEach(proc => {
+          if (proc.pacote && !proc.cancelado && !proc.faltou) {
+            if (!pacotesPendentes[proc.pacote]) {
+              pacotesPendentes[proc.pacote] = [];
+            }
+            pacotesPendentes[proc.pacote].push(proc);
+          }
+        });
+        
+        // Verifica pacotes com procedimentos pendentes
+        for (const [pacoteNome, procedimentos] of Object.entries(pacotesPendentes)) {
+          const pacote = pacotes.find(p => p.nome === pacoteNome);
+          if (pacote && procedimentos.length < pacote.procedimentos.length) {
+            const proximoProc = pacote.procedimentos.find(procNome => 
+              !procedimentos.some(p => p.procedimento === procNome)
+            );
+            
+            if (proximoProc) {
+              const clienteIndex = clientes.indexOf(cliente);
+              if (confirm(`O cliente ${cliente.nome} tem procedimentos pendentes do pacote ${pacoteNome}.\n\n` +
+                         `Próximo procedimento: ${proximoProc}\n\n` +
+                         `Deseja agendar agora?`)) {
+                abrirModalCliente(clienteIndex);
+                return;
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Funções de relatórios
     function gerarRelatorioFaturamento() {
       const inicio = document.getElementById('dataInicioRelatorio').value;
       const fim = document.getElementById('dataFimRelatorio').value;
@@ -1997,14 +2575,43 @@
         return;
       }
       
-      // Simular geração de relatório
-      document.getElementById('grafico-faturamento').innerHTML = `
-        <div class="alert alert-info">
-          <i class="fas fa-chart-line"></i> Relatório de faturamento de ${formatarData(inicio)} a ${formatarData(fim)} (simulado)
-        </div>
-      `;
+      // Calcular dados reais
+      let totalAtendimentos = 0;
+      let totalFaturamento = 0;
+      const dadosPorDia = [];
       
-      document.getElementById('tabela-faturamento').innerHTML = `
+      const dataInicio = new Date(inicio);
+      const dataFim = new Date(fim);
+      
+      // Coletar dados
+      clientes.forEach(cliente => {
+        cliente.procedimentos.forEach(proc => {
+          const dataProc = new Date(proc.data);
+          if (dataProc >= dataInicio && dataProc <= dataFim && !proc.cancelado && !proc.faltou) {
+            totalAtendimentos++;
+            totalFaturamento += proc.precoComDesconto || proc.preco || 0;
+            
+            const dataStr = proc.data;
+            const diaExistente = dadosPorDia.find(d => d.data === dataStr);
+            if (diaExistente) {
+              diaExistente.atendimentos++;
+              diaExistente.faturamento += proc.precoComDesconto || proc.preco || 0;
+            } else {
+              dadosPorDia.push({
+                data: dataStr,
+                atendimentos: 1,
+                faturamento: proc.precoComDesconto || proc.preco || 0
+              });
+            }
+          }
+        });
+      });
+      
+      // Ordenar por data
+      dadosPorDia.sort((a, b) => new Date(a.data) - new Date(b.data));
+      
+      // Gerar tabela
+      let tabelaHTML = `
         <table style="width:100%; border-collapse:collapse; margin-top:1rem;">
           <thead>
             <tr style="background:#f0f0f0;">
@@ -2014,34 +2621,83 @@
             </tr>
           </thead>
           <tbody>
-            <tr style="border-bottom:1px solid #eee;">
-              <td style="padding:10px;">${formatarData(inicio)}</td>
-              <td style="padding:10px; text-align:right;">5</td>
-              <td style="padding:10px; text-align:right;">${formatarMoeda(750)}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #eee;">
-              <td style="padding:10px;">${formatarData(fim)}</td>
-              <td style="padding:10px; text-align:right;">8</td>
-              <td style="padding:10px; text-align:right;">${formatarMoeda(1200)}</td>
-            </tr>
-            <tr style="font-weight:bold; background:#f9f9f9;">
-              <td style="padding:10px;">Total</td>
-              <td style="padding:10px; text-align:right;">13</td>
-              <td style="padding:10px; text-align:right;">${formatarMoeda(1950)}</td>
-            </tr>
+      `;
+      
+      dadosPorDia.forEach(dia => {
+        tabelaHTML += `
+          <tr style="border-bottom:1px solid #eee;">
+            <td style="padding:10px;">${formatarData(dia.data)}</td>
+            <td style="padding:10px; text-align:right;">${dia.atendimentos}</td>
+            <td style="padding:10px; text-align:right;">${formatarMoeda(dia.faturamento)}</td>
+          </tr>
+        `;
+      });
+      
+      tabelaHTML += `
+          <tr style="font-weight:bold; background:#f9f9f9;">
+            <td style="padding:10px;">Total</td>
+            <td style="padding:10px; text-align:right;">${totalAtendimentos}</td>
+            <td style="padding:10px; text-align:right;">${formatarMoeda(totalFaturamento)}</td>
+          </tr>
           </tbody>
         </table>
       `;
-    }
-
-    function gerarRelatorioProcedimentos() {
-      document.getElementById('grafico-procedimentos').innerHTML = `
+      
+      document.getElementById('grafico-faturamento').innerHTML = `
         <div class="alert alert-info">
-          <i class="fas fa-chart-pie"></i> Relatório de procedimentos mais realizados (simulado)
+          <i class="fas fa-chart-line"></i> Relatório de faturamento de ${formatarData(inicio)} a ${formatarData(fim)}
         </div>
       `;
       
-      document.getElementById('tabela-procedimentos').innerHTML = `
+      document.getElementById('tabela-faturamento').innerHTML = tabelaHTML;
+    }
+
+    function gerarRelatorioProcedimentos() {
+      const periodo = document.getElementById('periodoProcedimentos').value;
+      let dataInicio, dataFim;
+      
+      if (periodo === 'custom') {
+        const dataCustom = document.getElementById('dataCustomProcedimentos').value;
+        if (!dataCustom) {
+          alert('Por favor, selecione uma data para o período personalizado.');
+          return;
+        }
+        dataInicio = new Date(dataCustom);
+        dataFim = new Date();
+      } else {
+        dataFim = new Date();
+        dataInicio = new Date();
+        dataInicio.setDate(dataInicio.getDate() - parseInt(periodo));
+      }
+      
+      // Calcular procedimentos mais realizados
+      const procedimentosCount = {};
+      
+      clientes.forEach(cliente => {
+        cliente.procedimentos.forEach(proc => {
+          const dataProc = new Date(proc.data);
+          if (dataProc >= dataInicio && dataProc <= dataFim && !proc.cancelado && !proc.faltou) {
+            if (!procedimentosCount[proc.procedimento]) {
+              procedimentosCount[proc.procedimento] = {
+                count: 0,
+                faturamento: 0
+              };
+            }
+            procedimentosCount[proc.procedimento].count++;
+            procedimentosCount[proc.procedimento].faturamento += proc.precoComDesconto || proc.preco || 0;
+          }
+        });
+      });
+      
+      // Converter para array e ordenar
+      const procedimentosArray = Object.entries(procedimentosCount).map(([nome, dados]) => ({
+        nome,
+        count: dados.count,
+        faturamento: dados.faturamento
+      })).sort((a, b) => b.count - a.count);
+      
+      // Gerar tabela
+      let tabelaHTML = `
         <table style="width:100%; border-collapse:collapse; margin-top:1rem;">
           <thead>
             <tr style="background:#f0f0f0;">
@@ -2051,62 +2707,269 @@
             </tr>
           </thead>
           <tbody>
-            <tr style="border-bottom:1px solid #eee;">
-              <td style="padding:10px;">Limpeza de Pele</td>
-              <td style="padding:10px; text-align:right;">25</td>
-              <td style="padding:10px; text-align:right;">${formatarMoeda(3750)}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #eee;">
-              <td style="padding:10px;">Botox</td>
-              <td style="padding:10px; text-align:right;">18</td>
-              <td style="padding:10px; text-align:right;">${formatarMoeda(5400)}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #eee;">
-              <td style="padding:10px;">Preenchimento</td>
-              <td style="padding:10px; text-align:right;">12</td>
-              <td style="padding:10px; text-align:right;">${formatarMoeda(4800)}</td>
-            </tr>
+      `;
+      
+      procedimentosArray.forEach(proc => {
+        tabelaHTML += `
+          <tr style="border-bottom:1px solid #eee;">
+            <td style="padding:10px;">${proc.nome}</td>
+            <td style="padding:10px; text-align:right;">${proc.count}</td>
+            <td style="padding:10px; text-align:right;">${formatarMoeda(proc.faturamento)}</td>
+          </tr>
+        `;
+      });
+      
+      tabelaHTML += `
           </tbody>
         </table>
       `;
-    }
-
-    function gerarRelatorioClientes() {
-      document.getElementById('grafico-clientes').innerHTML = `
+      
+      document.getElementById('grafico-procedimentos').innerHTML = `
         <div class="alert alert-info">
-          <i class="fas fa-chart-bar"></i> Relatório de clientes mais frequentes (simulado)
+          <i class="fas fa-chart-pie"></i> Relatório de procedimentos mais realizados (${periodo === 'custom' ? formatarData(dataInicio.toISOString().split('T')[0]) + ' até hoje' : 'últimos ' + periodo + ' dias'})
         </div>
       `;
       
-      document.getElementById('tabela-clientes').innerHTML = `
+      document.getElementById('tabela-procedimentos').innerHTML = tabelaHTML;
+    }
+
+    function gerarRelatorioClientes() {
+      const ordenacao = document.getElementById('ordenacaoClientes').value;
+      const limite = parseInt(document.getElementById('limiteClientes').value);
+      
+      // Calcular dados dos clientes
+      const clientesComDados = clientes.map(cliente => {
+        const procedimentosCliente = (cliente.procedimentos || []).filter(p => !p.cancelado && !p.faltou);
+        const valorGasto = procedimentosCliente.reduce((total, p) => total + (p.precoComDesconto || p.preco || 0), 0);
+        const ultimoProcedimento = procedimentosCliente.length > 0 ? 
+          new Date(procedimentosCliente[procedimentosCliente.length - 1].data + 'T' + procedimentosCliente[procedimentosCliente.length - 1].hora) : null;
+        
+        return {
+          nome: cliente.nome,
+          whatsapp: cliente.whatsapp,
+          frequencia: procedimentosCliente.length,
+          valorGasto,
+          recencia: ultimoProcedimento ? ultimoProcedimento.getTime() : 0
+        };
+      });
+      
+      // Ordenar conforme seleção
+      if (ordenacao === 'frequencia') {
+        clientesComDados.sort((a, b) => b.frequencia - a.frequencia);
+      } else if (ordenacao === 'valor') {
+        clientesComDados.sort((a, b) => b.valorGasto - a.valorGasto);
+      } else if (ordenacao === 'recencia') {
+        clientesComDados.sort((a, b) => b.recencia - a.recencia);
+      }
+      
+      // Aplicar limite
+      const clientesFiltrados = limite > 0 ? clientesComDados.slice(0, limite) : clientesComDados;
+      
+      // Gerar tabela
+      let tabelaHTML = `
         <table style="width:100%; border-collapse:collapse; margin-top:1rem;">
           <thead>
             <tr style="background:#f0f0f0;">
               <th style="padding:10px; text-align:left;">Cliente</th>
               <th style="padding:10px; text-align:right;">Atendimentos</th>
               <th style="padding:10px; text-align:right;">Valor Gasto</th>
+              <th style="padding:10px; text-align:right;">Último Atendimento</th>
             </tr>
           </thead>
           <tbody>
-            <tr style="border-bottom:1px solid #eee;">
-              <td style="padding:10px;">Ana Silva</td>
-              <td style="padding:10px; text-align:right;">8</td>
-              <td style="padding:10px; text-align:right;">${formatarMoeda(2400)}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #eee;">
-              <td style="padding:10px;">Carlos Oliveira</td>
-              <td style="padding:10px; text-align:right;">6</td>
-              <td style="padding:10px; text-align:right;">${formatarMoeda(1800)}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #eee;">
-              <td style="padding:10px;">Mariana Santos</td>
-              <td style="padding:10px; text-align:right;">5</td>
-              <td style="padding:10px; text-align:right;">${formatarMoeda(1500)}</td>
-            </tr>
+      `;
+      
+      clientesFiltrados.forEach(cliente => {
+        const ultimoAtendimento = cliente.recencia ? new Date(cliente.recencia).toLocaleDateString('pt-BR') : 'Nunca';
+        
+        tabelaHTML += `
+          <tr style="border-bottom:1px solid #eee;">
+            <td style="padding:10px;">${cliente.nome}</td>
+            <td style="padding:10px; text-align:right;">${cliente.frequencia}</td>
+            <td style="padding:10px; text-align:right;">${formatarMoeda(cliente.valorGasto)}</td>
+            <td style="padding:10px; text-align:right;">${ultimoAtendimento}</td>
+          </tr>
+        `;
+      });
+      
+      tabelaHTML += `
           </tbody>
         </table>
       `;
+      
+      document.getElementById('grafico-clientes').innerHTML = `
+        <div class="alert alert-info">
+          <i class="fas fa-chart-bar"></i> Relatório de clientes ${ordenacao === 'frequencia' ? 'mais frequentes' : ordenacao === 'valor' ? 'que mais gastaram' : 'por recência'}
+        </div>
+      `;
+      
+      document.getElementById('tabela-clientes').innerHTML = tabelaHTML;
     }
+
+    function gerarRelatorioPacotes() {
+      const periodo = parseInt(document.getElementById('periodoPacotes').value);
+      const dataFim = new Date();
+      const dataInicio = new Date();
+      dataInicio.setDate(dataInicio.getDate() - periodo);
+      
+      // Calcular pacotes vendidos
+      const pacotesVendidos = {};
+      
+      clientes.forEach(cliente => {
+        const pacotesCliente = {};
+        
+        // Agrupar procedimentos por pacote
+        cliente.procedimentos.forEach(proc => {
+          if (proc.pacote && !proc.cancelado && !proc.faltou) {
+            if (!pacotesCliente[proc.pacote]) {
+              pacotesCliente[proc.pacote] = 0;
+            }
+            pacotesCliente[proc.pacote]++;
+          }
+        });
+        
+        // Contar pacotes completos
+        Object.entries(pacotesCliente).forEach(([pacoteNome, count]) => {
+          const pacote = pacotes.find(p => p.nome === pacoteNome);
+          if (pacote && count >= pacote.procedimentos.length) {
+            if (!pacotesVendidos[pacoteNome]) {
+              pacotesVendidos[pacoteNome] = {
+                count: 0,
+                faturamento: 0
+              };
+            }
+            pacotesVendidos[pacoteNome].count++;
+            pacotesVendidos[pacoteNome].faturamento += pacote.preco;
+          }
+        });
+      });
+      
+      // Converter para array e ordenar
+      const pacotesArray = Object.entries(pacotesVendidos).map(([nome, dados]) => ({
+        nome,
+        count: dados.count,
+        faturamento: dados.faturamento,
+        procedimentos: pacotes.find(p => p.nome === nome).procedimentos
+      })).sort((a, b) => b.count - a.count);
+      
+      // Gerar tabela
+      let tabelaHTML = `
+        <table style="width:100%; border-collapse:collapse; margin-top:1rem;">
+          <thead>
+            <tr style="background:#f0f0f0;">
+              <th style="padding:10px; text-align:left;">Pacote</th>
+              <th style="padding:10px; text-align:right;">Vendas</th>
+              <th style="padding:10px; text-align:right;">Faturamento</th>
+              <th style="padding:10px; text-align:left;">Procedimentos</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      pacotesArray.forEach(pacote => {
+        tabelaHTML += `
+          <tr style="border-bottom:1px solid #eee;">
+            <td style="padding:10px;">${pacote.nome}</td>
+            <td style="padding:10px; text-align:right;">${pacote.count}</td>
+            <td style="padding:10px; text-align:right;">${formatarMoeda(pacote.faturamento)}</td>
+            <td style="padding:10px;"><small>${pacote.procedimentos.join(', ')}</small></td>
+          </tr>
+        `;
+      });
+      
+      tabelaHTML += `
+          </tbody>
+        </table>
+      `;
+      
+      document.getElementById('grafico-pacotes').innerHTML = `
+        <div class="alert alert-info">
+          <i class="fas fa-box-open"></i> Relatório de pacotes vendidos (últimos ${periodo} dias)
+        </div>
+      `;
+      
+      document.getElementById('tabela-pacotes').innerHTML = tabelaHTML;
+    }
+
+    // Funções para backup
+    function exportarBackup() {
+      const dados = {
+        clientes,
+        procedimentos,
+        pacotes,
+        exportadoEm: new Date().toISOString()
+      };
+      
+      const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `backup-clinica-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importarBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const dados = JSON.parse(e.target.result);
+          if (dados.clientes && dados.procedimentos && dados.pacotes) {
+            if (confirm('Deseja importar os dados do backup? Isso substituirá todos os dados atuais.')) {
+              clientes = dados.clientes;
+              procedimentos = dados.procedimentos;
+              pacotes = dados.pacotes;
+              salvarLocal();
+              location.reload();
+            }
+          } else {
+            alert('Arquivo de backup inválido ou incompleto.');
+          }
+        } catch (error) {
+          alert('Erro ao ler arquivo de backup: ' + error.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Adicionar botões de backup no HTML (você pode adicionar manualmente onde preferir)
+    function adicionarBotoesBackup() {
+      const backupDiv = document.createElement('div');
+      backupDiv.style.position = 'fixed';
+      backupDiv.style.bottom = '20px';
+      backupDiv.style.right = '20px';
+      backupDiv.style.display = 'flex';
+      backupDiv.style.gap = '10px';
+      
+      const btnExportar = document.createElement('button');
+      btnExportar.className = 'btn-primary';
+      btnExportar.innerHTML = '<i class="fas fa-file-export"></i> Exportar Backup';
+      btnExportar.onclick = exportarBackup;
+      
+      const btnImportar = document.createElement('button');
+      btnImportar.className = 'btn-success';
+      btnImportar.innerHTML = '<i class="fas fa-file-import"></i> Importar Backup';
+      
+      const inputImportar = document.createElement('input');
+      inputImportar.type = 'file';
+      inputImportar.accept = '.json';
+      inputImportar.style.display = 'none';
+      inputImportar.onchange = importarBackup;
+      
+      btnImportar.onclick = () => inputImportar.click();
+      
+      backupDiv.appendChild(btnExportar);
+      backupDiv.appendChild(btnImportar);
+      backupDiv.appendChild(inputImportar);
+      
+      document.body.appendChild(backupDiv);
+    }
+
+    // Chamar a função para adicionar os botões de backup
+    adicionarBotoesBackup();
   </script>
 </body>
 </html>
