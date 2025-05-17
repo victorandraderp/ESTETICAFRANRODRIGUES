@@ -19,16 +19,7 @@
       --gray: #6c757d;
       --white: #ffffff;
     }
-    .appointment-occupied {
-        background: repeating-linear-gradient(
-            45deg,
-            rgba(0,0,0,0.05),
-            rgba(0,0,0,0.05) 5px,
-            rgba(0,0,0,0.1) 5px,
-            rgba(0,0,0,0.1) 10px
-        );
-        height: 100%;
-    }
+    
     * {
       box-sizing: border-box;
       margin: 0;
@@ -1449,66 +1440,63 @@
         return ultimoB - ultimoA;
       });
       
-      clientesOrdenados.forEach((clienteOrdenado) => {
-  const indexOriginal = clientes.findIndex(c => c.whatsapp === clienteOrdenado.whatsapp);
-
-  const card = document.createElement('div');
-  card.className = 'card';
-
-  let procedimentosHtml = '<ul style="margin-top:10px;">';
-  (clienteOrdenado.procedimentos || []).forEach((p) => {
-    const dt = new Date(p.data + 'T' + p.hora);
-    let statusClass = 'status-scheduled';
-    let statusIcon = '<i class="far fa-clock"></i>';
-
-    if (p.cancelado) {
-      statusClass = 'status-canceled';
-      statusIcon = '<i class="fas fa-ban"></i>';
-    } else if (p.faltou) {
-      statusClass = 'status-missed';
-      statusIcon = '<i class="fas fa-user-times"></i>';
-    } else if (dt < new Date()) {
-      statusClass = 'status-completed';
-      statusIcon = '<i class="fas fa-check"></i>';
-    }
-
-    procedimentosHtml += `
-      <li style="margin-bottom:5px; display:flex; align-items:center;">
-        <span class="${statusClass}" style="margin-right:5px;">${statusIcon}</span>
-        <span>${p.procedimento} ${p.pacote ? `<span class="package-badge">${p.pacote}</span>` : ''} - ${formatarData(p.data)} às ${p.hora}</span>
-      </li>
-    `;
-  });
-  procedimentosHtml += '</ul>';
-
-  card.innerHTML = `
-    <div class="card-header">
-      <div class="card-title">${clienteOrdenado.nome}</div>
-      <div>
-        <span class="badge badge-primary">${clienteOrdenado.procedimentos ? clienteOrdenado.procedimentos.length : 0} procedimentos</span>
-      </div>
-    </div>
-    <div class="card-body">
-      <p><i class="fas fa-phone-alt"></i> ${clienteOrdenado.whatsapp}</p>
-      ${clienteOrdenado.email ? `<p><i class="fas fa-envelope"></i> ${clienteOrdenado.email}</p>` : ''}
-      ${procedimentosHtml}
-    </div>
-    <div class="card-footer">
-      <button class="btn-info btn-sm" onclick="contatarCliente('${clienteOrdenado.whatsapp}')">
-        <i class="fab fa-whatsapp"></i> WhatsApp
-      </button>
-      <button class="btn-primary btn-sm" onclick="abrirModalCliente(${indexOriginal})">
-        <i class="fas fa-edit"></i> Editar
-      </button>
-      <button class="btn-danger btn-sm" onclick="excluirCliente(${indexOriginal})">
-        <i class="fas fa-trash"></i> Excluir
-      </button>
-    </div>
-  `;
-
-  lista.appendChild(card);
-});
-
+      clientesOrdenados.forEach((cliente, index) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        
+        let procedimentosHtml = '<ul style="margin-top:10px;">';
+        (cliente.procedimentos || []).forEach((p, pIndex) => {
+          const dt = new Date(p.data + 'T' + p.hora);
+          let statusClass = 'status-scheduled';
+          let statusIcon = '<i class="far fa-clock"></i>';
+          
+          if (p.cancelado) {
+            statusClass = 'status-canceled';
+            statusIcon = '<i class="fas fa-ban"></i>';
+          } else if (p.faltou) {
+            statusClass = 'status-missed';
+            statusIcon = '<i class="fas fa-user-times"></i>';
+          } else if (dt < new Date()) {
+            statusClass = 'status-completed';
+            statusIcon = '<i class="fas fa-check"></i>';
+          }
+          
+          procedimentosHtml += `
+            <li style="margin-bottom:5px; display:flex; align-items:center;">
+              <span class="${statusClass}" style="margin-right:5px;">${statusIcon}</span>
+              <span>${p.procedimento} ${p.pacote ? `<span class="package-badge">${p.pacote}</span>` : ''} - ${formatarData(p.data)} às ${p.hora}</span>
+            </li>
+          `;
+        });
+        procedimentosHtml += '</ul>';
+        
+        card.innerHTML = `
+          <div class="card-header">
+            <div class="card-title">${cliente.nome}</div>
+            <div>
+              <span class="badge badge-primary">${cliente.procedimentos ? cliente.procedimentos.length : 0} procedimentos</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <p><i class="fas fa-phone-alt"></i> ${cliente.whatsapp}</p>
+            ${cliente.email ? `<p><i class="fas fa-envelope"></i> ${cliente.email}</p>` : ''}
+            ${procedimentosHtml}
+          </div>
+          <div class="card-footer">
+            <button class="btn-info btn-sm" onclick="contatarCliente('${cliente.whatsapp}')">
+              <i class="fab fa-whatsapp"></i> WhatsApp
+            </button>
+            <button class="btn-primary btn-sm" onclick="abrirModalCliente(${index})">
+              <i class="fas fa-edit"></i> Editar
+            </button>
+            <button class="btn-danger btn-sm" onclick="excluirCliente(${index})">
+              <i class="fas fa-trash"></i> Excluir
+            </button>
+          </div>
+        `;
+        
+        lista.appendChild(card);
+      });
     }
 
     function filtrarClientes() {
