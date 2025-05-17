@@ -672,8 +672,11 @@
     }
   </style>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-app.js";
+<script src="https://www.gstatic.com/firebasejs/11.7.3/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.7.3/firebase-database-compat.js"></script>
+<script>
+
+  
   import { getDatabase, ref, set, push, update, remove, get, child }
     from "https://www.gstatic.com/firebasejs/11.7.3/firebase-database.js";
 
@@ -687,8 +690,8 @@
     appId: "1:940948970320:web:b6f4a2776b0ebb100aaa55"
   };
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 </script>
 
 </head>
@@ -1556,16 +1559,45 @@
     }
 
     
+
 function salvarCliente() {
   const nome = document.getElementById('nomeCliente').value.trim();
   let whatsapp = document.getElementById('whatsCliente').value.trim().replace(/\D/g, '');
   const email = document.getElementById('emailCliente').value.trim();
   const observacoes = document.getElementById('obsCliente').value.trim();
 
-  if (!nome) {
-    alert('Por favor, informe o nome do cliente.');
+  if (!nome || !whatsapp || whatsapp.length < 11) {
+    alert('Preencha nome e WhatsApp corretamente.');
     return;
   }
+
+  whatsapp = '+' + whatsapp;
+
+  if (procedimentosTemp.length === 0) {
+    alert('Adicione pelo menos um procedimento.');
+    return;
+  }
+
+  const cliente = {
+    nome,
+    whatsapp,
+    email,
+    observacoes,
+    procedimentos: [...procedimentosTemp]
+  };
+
+  if (clienteEditandoIndex !== null && clientes[clienteEditandoIndex].firebaseId) {
+    const id = clientes[clienteEditandoIndex].firebaseId;
+    firebase.database().ref('clientes/' + id).update(cliente);
+  } else {
+    const novoRef = firebase.database().ref('clientes').push();
+    novoRef.set(cliente);
+  }
+
+  fecharModal('modalCliente');
+  listarClientes();
+}
+
 
   if (!whatsapp || whatsapp.length < 11) {
     alert('Por favor, informe um número de WhatsApp válido com DDD.');
