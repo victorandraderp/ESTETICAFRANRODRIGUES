@@ -1163,6 +1163,31 @@
 
     // Inicialização
     document.addEventListener('DOMContentLoaded', function() {
+  // Firebase - Carregamento inicial dos dados
+  get(ref(db, 'clientes')).then(snapshot => {
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      clientes = Object.entries(data).map(([id, cliente]) => ({ ...cliente, firebaseId: id }));
+      listarClientes();
+      carregarDashboard();
+    }
+  });
+
+  get(ref(db, 'procedimentos')).then(snapshot => {
+    if (snapshot.exists()) {
+      procedimentos = Object.values(snapshot.val());
+      carregarProcedimentosDropdown();
+      listarProcedimentos();
+    }
+  });
+
+  get(ref(db, 'pacotes')).then(snapshot => {
+    if (snapshot.exists()) {
+      pacotes = Object.values(snapshot.val());
+      carregarPacotesDropdown();
+    }
+  });
+
       atualizarDataAtual();
       carregarProcedimentosDropdown();
       carregarPacotesDropdown();
