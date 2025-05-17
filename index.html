@@ -628,6 +628,20 @@
       background: #f0f0f0;
     }
     
+    /* Estilo para filtros de clientes */
+    .filters-bar {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
     @media (max-width: 768px) {
       nav ul {
         flex-wrap: wrap;
@@ -669,17 +683,17 @@
       .modal-content {
         width: 95%;
       }
+      
+      .filters-bar {
+        flex-direction: column;
+      }
     }
   </style>
 
 <script src="https://www.gstatic.com/firebasejs/11.7.3/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.7.3/firebase-database-compat.js"></script>
 <script>
-
-  
-  import { getDatabase, ref, set, push, update, remove, get, child }
-    from "https://www.gstatic.com/firebasejs/11.7.3/firebase-database.js";
-
+  // Firebase configuration
   const firebaseConfig = {
     apiKey: "AIzaSyAY34TCHirQIIvkgFbD6bKet2rOzYq_Qas",
     authDomain: "franclinica-6c86c.firebaseapp.com",
@@ -690,6 +704,7 @@
     appId: "1:940948970320:web:b6f4a2776b0ebb100aaa55"
   };
 
+  // Initialize Firebase
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 </script>
@@ -774,11 +789,21 @@
     <section id="clientes" class="section hidden">
       <h2><i class="fas fa-users"></i> Gestão de Clientes</h2>
       
-      <div class="actions-bar">
+      <div class="filters-bar">
         <div class="search-box">
           <i class="fas fa-search"></i>
           <input type="text" id="buscaCliente" placeholder="Buscar cliente por nome, WhatsApp..." oninput="filtrarClientes()">
         </div>
+        
+        <div class="filter-group">
+          <label for="filtroInativos">Filtrar:</label>
+          <select id="filtroInativos" onchange="filtrarClientes()">
+            <option value="todos">Todos os clientes</option>
+            <option value="inativos">Inativos (45+ dias)</option>
+            <option value="ativos">Ativos (últimos 45 dias)</option>
+          </select>
+        </div>
+        
         <button class="btn-primary" onclick="abrirModalCliente()">
           <i class="fas fa-plus"></i> Novo Cliente
         </button>
@@ -1156,41 +1181,19 @@
   </div>
 
   <script>
-    // Variáveis globais atualizadas
-    let clientes = []; // Dados vindos do Firebase
-    let procedimentos = []; // Dados vindos do Firebase
-    let pacotes = []; // Dados vindos do Firebase
+    // Variáveis globais
+    let clientes = [];
+    let procedimentos = [];
+    let pacotes = [];
     let clienteEditandoIndex = null;
     let procedimentosTemp = [];
     let agendamentoEditando = null;
 
     // Inicialização
     document.addEventListener('DOMContentLoaded', function() {
-  // Firebase - Carregamento inicial dos dados
-  get(ref(db, 'clientes')).then(snapshot => {
-    if (snapshot.exists()) {
-      const data = snapshot.val();
-      clientes = Object.entries(data).map(([id, cliente]) => ({ ...cliente, firebaseId: id }));
-      listarClientes();
-      carregarDashboard();
-    }
-  });
-
-  get(ref(db, 'procedimentos')).then(snapshot => {
-    if (snapshot.exists()) {
-      procedimentos = Object.values(snapshot.val());
-      carregarProcedimentosDropdown();
-      listarProcedimentos();
-    }
-  });
-
-  get(ref(db, 'pacotes')).then(snapshot => {
-    if (snapshot.exists()) {
-      pacotes = Object.values(snapshot.val());
-      carregarPacotesDropdown();
-    }
-  });
-
+      // Carregar dados do Firebase
+      carregarDadosFirebase();
+      
       atualizarDataAtual();
       carregarProcedimentosDropdown();
       carregarPacotesDropdown();
@@ -1207,7 +1210,43 @@
       
       // Mostrar dashboard por padrão
       mostrar('dashboard');
+      
+      // Configurar listener para período personalizado
+      document.getElementById('periodoProcedimentos').addEventListener('change', function() {
+        document.getElementById('customProcedimentos').style.display = 
+          this.value === 'custom' ? 'block' : 'none';
+      });
     });
+
+    // Funções Firebase
+    function carregarDadosFirebase() {
+      // Carregar clientes
+      firebase.database().ref('clientes').on('value', (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          clientes = Object.entries(data).map(([id, cliente]) => ({ ...cliente, firebaseId: id }));
+          listarClientes();
+          carregarDashboard();
+        }
+      });
+
+      // Carregar procedimentos
+      firebase.database().ref('procedimentos').on('value', (snapshot) => {
+        if (snapshot.exists()) {
+          procedimentos = Object.values(snapshot.val());
+          carregarProcedimentosDropdown();
+          listarProcedimentos();
+        }
+      });
+
+      // Carregar pacotes
+      firebase.database().ref('pacotes').on('value', (snapshot) => {
+        if (snapshot.exists()) {
+          pacotes = Object.values(snapshot.val());
+          carregarPacotesDropdown();
+        }
+      });
+    }
 
     // Funções utilitárias
     function formatarData(dataStr) {
@@ -1224,13 +1263,6 @@
       const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
       const hoje = new Date().toLocaleDateString('pt-BR', options);
       document.getElementById('current-date').textContent = hoje;
-    }
-
-    function salvarLocal() {
-  // Substituído por Firebase
-      /* salvar clientes no Firebase */
-      /* salvar procedimentos no Firebase */
-      /* salvar pacotes no Firebase */
     }
 
     // Funções de navegação
@@ -1364,7 +1396,7 @@
           if (proc.habilitado !== false) {
             const option = document.createElement('option');
             option.value = proc.nome;
-            option.textContent = `${proc.nome} - ${formatarMoeda(proc.preco)}`;
+            option.textContent = `${proc.nome} - ${formatarMoeda(proc.preco)} (${proc.duracao || 30} min)`;
             option.selected = pacote.procedimentos.includes(proc.nome);
             selectProcedimentos.appendChild(option);
           }
@@ -1382,7 +1414,7 @@
           if (proc.habilitado !== false) {
             const option = document.createElement('option');
             option.value = proc.nome;
-            option.textContent = `${proc.nome} - ${formatarMoeda(proc.preco)}`;
+            option.textContent = `${proc.nome} - ${formatarMoeda(proc.preco)} (${proc.duracao || 30} min)`;
             selectProcedimentos.appendChild(option);
           }
         });
@@ -1480,8 +1512,28 @@
         return;
       }
       
+      // Filtrar clientes conforme seleção
+      const filtroInativos = document.getElementById('filtroInativos').value;
+      const hoje = new Date();
+      const quarentaCincoDiasAtras = new Date(hoje);
+      quarentaCincoDiasAtras.setDate(hoje.getDate() - 45);
+      
+      const clientesFiltrados = clientes.filter(cliente => {
+        if (filtroInativos === 'todos') return true;
+        
+        const ultimoProcedimento = cliente.procedimentos && cliente.procedimentos.length > 0 ? 
+          new Date(cliente.procedimentos[cliente.procedimentos.length - 1].data + 'T' + cliente.procedimentos[cliente.procedimentos.length - 1].hora) : null;
+        
+        if (filtroInativos === 'inativos') {
+          return ultimoProcedimento ? ultimoProcedimento < quarentaCincoDiasAtras : true;
+        } else if (filtroInativos === 'ativos') {
+          return ultimoProcedimento ? ultimoProcedimento >= quarentaCincoDiasAtras : false;
+        }
+        return true;
+      });
+      
       // Ordenar clientes pelo último procedimento agendado
-      const clientesOrdenados = [...clientes].sort((a, b) => {
+      const clientesOrdenados = [...clientesFiltrados].sort((a, b) => {
         const ultimoA = a.procedimentos && a.procedimentos.length > 0 ? 
           new Date(a.procedimentos[a.procedimentos.length - 1].data + 'T' + a.procedimentos[a.procedimentos.length - 1].hora) : new Date(0);
         const ultimoB = b.procedimentos && b.procedimentos.length > 0 ? 
@@ -1519,9 +1571,14 @@
         });
         procedimentosHtml += '</ul>';
         
+        // Verificar se é cliente inativo
+        const ultimoProcedimento = cliente.procedimentos && cliente.procedimentos.length > 0 ? 
+          new Date(cliente.procedimentos[cliente.procedimentos.length - 1].data + 'T' + cliente.procedimentos[cliente.procedimentos.length - 1].hora) : null;
+        const isInativo = ultimoProcedimento ? ultimoProcedimento < quarentaCincoDiasAtras : true;
+        
         card.innerHTML = `
           <div class="card-header">
-            <div class="card-title">${cliente.nome}</div>
+            <div class="card-title">${cliente.nome} ${isInativo ? '<span style="color:#dc3545;">(Inativo)</span>' : ''}</div>
             <div>
               <span class="badge badge-primary">${cliente.procedimentos ? cliente.procedimentos.length : 0} procedimentos</span>
             </div>
@@ -1535,6 +1592,11 @@
             <button class="btn-info btn-sm" onclick="contatarCliente('${cliente.whatsapp}')">
               <i class="fab fa-whatsapp"></i> WhatsApp
             </button>
+            ${isInativo ? `
+            <button class="btn-success btn-sm" onclick="acionarClienteRetorno(${index})">
+              <i class="fas fa-bullhorn"></i> Acionar Retorno
+            </button>
+            ` : ''}
             <button class="btn-primary btn-sm" onclick="abrirModalCliente(${index})">
               <i class="fas fa-edit"></i> Editar
             </button>
@@ -1550,102 +1612,146 @@
 
     function filtrarClientes() {
       const termo = document.getElementById('buscaCliente').value.toLowerCase().trim();
+      const filtroInativos = document.getElementById('filtroInativos').value;
+      const hoje = new Date();
+      const quarentaCincoDiasAtras = new Date(hoje);
+      quarentaCincoDiasAtras.setDate(hoje.getDate() - 45);
+      
       const cards = document.querySelectorAll('#listaClientes .card');
       
       cards.forEach(card => {
         const texto = card.textContent.toLowerCase();
-        card.style.display = texto.includes(termo) ? 'block' : 'none';
+        const clienteIndex = parseInt(card.querySelector('.btn-primary').getAttribute('onclick').match(/\((\d+)\)/)[1]);
+        const cliente = clientes[clienteIndex];
+        
+        // Verificar filtro de inatividade
+        let mostra = true;
+        if (filtroInativos !== 'todos') {
+          const ultimoProcedimento = cliente.procedimentos && cliente.procedimentos.length > 0 ? 
+            new Date(cliente.procedimentos[cliente.procedimentos.length - 1].data + 'T' + cliente.procedimentos[cliente.procedimentos.length - 1].hora) : null;
+          
+          if (filtroInativos === 'inativos') {
+            mostra = ultimoProcedimento ? ultimoProcedimento < quarentaCincoDiasAtras : true;
+          } else if (filtroInativos === 'ativos') {
+            mostra = ultimoProcedimento ? ultimoProcedimento >= quarentaCincoDiasAtras : false;
+          }
+        }
+        
+        // Verificar termo de busca
+        if (mostra) {
+          mostra = texto.includes(termo);
+        }
+        
+        card.style.display = mostra ? 'block' : 'none';
       });
     }
 
-    
+    function salvarCliente() {
+      const nome = document.getElementById('nomeCliente').value.trim();
+      let whatsapp = document.getElementById('whatsCliente').value.trim().replace(/\D/g, '');
+      const email = document.getElementById('emailCliente').value.trim();
+      const observacoes = document.getElementById('obsCliente').value.trim();
 
-function salvarCliente() {
-  const nome = document.getElementById('nomeCliente').value.trim();
-  let whatsapp = document.getElementById('whatsCliente').value.trim().replace(/\D/g, '');
-  const email = document.getElementById('emailCliente').value.trim();
-  const observacoes = document.getElementById('obsCliente').value.trim();
+      if (!nome) {
+        alert('Por favor, informe o nome do cliente.');
+        return;
+      }
 
-  if (!nome || !whatsapp || whatsapp.length < 11) {
-    alert('Preencha nome e WhatsApp corretamente.');
-    return;
-  }
+      if (!whatsapp || whatsapp.length < 11) {
+        alert('Por favor, informe um número de WhatsApp válido com DDD.');
+        return;
+      }
 
-  whatsapp = '+' + whatsapp;
+      whatsapp = '+' + whatsapp;
 
-  if (procedimentosTemp.length === 0) {
-    alert('Adicione pelo menos um procedimento.');
-    return;
-  }
+      if (procedimentosTemp.length === 0) {
+        alert('Por favor, adicione pelo menos um procedimento para o cliente.');
+        return;
+      }
 
-  const cliente = {
-    nome,
-    whatsapp,
-    email,
-    observacoes,
-    procedimentos: [...procedimentosTemp]
-  };
+      const cliente = {
+        nome,
+        whatsapp,
+        email,
+        observacoes,
+        procedimentos: [...procedimentosTemp]
+      };
 
-  if (clienteEditandoIndex !== null && clientes[clienteEditandoIndex].firebaseId) {
-    const id = clientes[clienteEditandoIndex].firebaseId;
-    firebase.database().ref('clientes/' + id).update(cliente);
-  } else {
-    const novoRef = firebase.database().ref('clientes').push();
-    novoRef.set(cliente);
-  }
+      if (clienteEditandoIndex !== null && clientes[clienteEditandoIndex].firebaseId) {
+        // Atualizar cliente existente
+        const id = clientes[clienteEditandoIndex].firebaseId;
+        firebase.database().ref('clientes/' + id).update(cliente)
+          .then(() => {
+            fecharModal('modalCliente');
+            listarClientes();
+            carregarDashboard();
+          })
+          .catch(error => {
+            alert('Erro ao atualizar cliente: ' + error.message);
+          });
+      } else {
+        // Criar novo cliente
+        firebase.database().ref('clientes').push(cliente)
+          .then(() => {
+            fecharModal('modalCliente');
+            listarClientes();
+            carregarDashboard();
+          })
+          .catch(error => {
+            alert('Erro ao criar cliente: ' + error.message);
+          });
+      }
+    }
 
-  fecharModal('modalCliente');
-  listarClientes();
-}
-
-
-  if (!whatsapp || whatsapp.length < 11) {
-    alert('Por favor, informe um número de WhatsApp válido com DDD.');
-    return;
-  }
-
-  whatsapp = '+' + whatsapp;
-
-  if (procedimentosTemp.length === 0) {
-    alert('Por favor, adicione pelo menos um procedimento para o cliente.');
-    return;
-  }
-
-  const cliente = {
-    nome,
-    whatsapp,
-    email,
-    observacoes,
-    procedimentos: [...procedimentosTemp]
-  };
-
-  if (clienteEditandoIndex !== null && clientes[clienteEditandoIndex].firebaseId) {
-    const id = clientes[clienteEditandoIndex].firebaseId;
-    update(ref(db, 'clientes/' + id), cliente);
-  } else {
-    const novoRef = push(ref(db, 'clientes'));
-    set(novoRef, cliente);
-  }
-
-  fecharModal('modalCliente');
-  listarClientes();
-  carregarDashboard();
-}
-
+    function acionarClienteRetorno(index) {
+      const cliente = clientes[index];
+      if (!cliente.procedimentos || cliente.procedimentos.length === 0) {
+        alert('Este cliente não possui procedimentos registrados.');
+        return;
+      }
       
+      // Encontrar o último procedimento concluído
+      let ultimoProcedimento = null;
+      for (let i = cliente.procedimentos.length - 1; i >= 0; i--) {
+        const proc = cliente.procedimentos[i];
+        const dt = new Date(proc.data + 'T' + proc.hora);
+        if (!proc.cancelado && !proc.faltou && dt < new Date()) {
+          ultimoProcedimento = proc;
+          break;
+        }
+      }
       
-      salvarLocal();{
-      fecharModal('modalCliente');
-      listarClientes();
-      carregarDashboard();
+      if (!ultimoProcedimento) {
+        alert('Não foi encontrado um procedimento concluído para este cliente.');
+        return;
+      }
+      
+      if (confirm(`Enviar mensagem de retorno para ${cliente.nome} com desconto de 20% no procedimento ${ultimoProcedimento.procedimento}?`)) {
+        const valorComDesconto = (ultimoProcedimento.precoComDesconto || ultimoProcedimento.preco) * 0.8;
+        
+        const msg = encodeURIComponent(
+          `Olá ${cliente.nome}, tudo bem? Aqui é da Clínica Francielly Rodrigues.\n\n` +
+          `Percebemos que faz um tempo desde seu último procedimento (${ultimoProcedimento.procedimento}) conosco.\n\n` +
+          `Temos uma oferta especial para você: 20% de desconto na próxima sessão!\n\n` +
+          `Valor com desconto: ${formatarMoeda(valorComDesconto)}\n\n` +
+          `Gostaria de agendar um horário? Responda "SIM" que entraremos em contato para marcar.`
+        );
+        
+        window.open(`https://wa.me/${cliente.whatsapp}?text=${msg}`, '_blank');
+      }
     }
 
     function excluirCliente(index) {
       if (confirm('Tem certeza que deseja excluir este cliente e todos os seus agendamentos?')) {
-        clientes.splice(index, 1);
-        salvarLocal();
-        listarClientes();
-        carregarDashboard();
+        const id = clientes[index].firebaseId;
+        firebase.database().ref('clientes/' + id).remove()
+          .then(() => {
+            listarClientes();
+            carregarDashboard();
+          })
+          .catch(error => {
+            alert('Erro ao excluir cliente: ' + error.message);
+          });
       }
     }
 
@@ -1810,7 +1916,7 @@ function salvarCliente() {
             continue;
           }
           
-          if (!proc.cancelado && !proc.faltou) {
+          if (!proc.cancelado && !proc.faltou && proc.data && proc.hora) {
             const procInicio = new Date(`${proc.data}T${proc.hora}`);
             const procDuracao = proc.duracao || 30;
             const procFim = new Date(procInicio.getTime() + procDuracao * 60000);
@@ -1961,10 +2067,15 @@ function salvarCliente() {
 
     function toggleHabilitarProcedimento(index) {
       procedimentos[index].habilitado = !procedimentos[index].habilitado;
-      salvarLocal();
-      listarProcedimentos();
-      carregarProcedimentosDropdown();
-      carregarPacotesDropdown();
+      firebase.database().ref('procedimentos').set(procedimentos)
+        .then(() => {
+          listarProcedimentos();
+          carregarProcedimentosDropdown();
+          carregarPacotesDropdown();
+        })
+        .catch(error => {
+          alert('Erro ao atualizar procedimento: ' + error.message);
+        });
     }
 
     function filtrarProcedimentos() {
@@ -2005,30 +2116,39 @@ function salvarCliente() {
         const index = procedimentos.findIndex(p => p.nome === nomeOriginal);
         
         if (index !== -1) {
-          // Atualizar procedimentos em todos os clientes
-          clientes.forEach(cliente => {
-            cliente.procedimentos.forEach(proc => {
-              if (proc.procedimento === nomeOriginal) {
-                proc.procedimento = nome;
-                proc.preco = preco;
-                proc.duracao = duracao;
-              }
-            });
-          });
-          
+          // Atualizar procedimento
           procedimentos[index] = procedimento;
+          
+          // Atualizar no Firebase
+          firebase.database().ref('procedimentos').set(procedimentos)
+            .then(() => {
+              fecharModal('modalProcedimento');
+              listarProcedimentos();
+              carregarProcedimentosDropdown();
+              carregarPacotesDropdown();
+              carregarDashboard();
+            })
+            .catch(error => {
+              alert('Erro ao atualizar procedimento: ' + error.message);
+            });
         }
       } else {
         // Novo procedimento
         procedimentos.push(procedimento);
+        
+        // Salvar no Firebase
+        firebase.database().ref('procedimentos').set(procedimentos)
+          .then(() => {
+            fecharModal('modalProcedimento');
+            listarProcedimentos();
+            carregarProcedimentosDropdown();
+            carregarPacotesDropdown();
+            carregarDashboard();
+          })
+          .catch(error => {
+            alert('Erro ao criar procedimento: ' + error.message);
+          });
       }
-      
-      salvarLocal();
-      fecharModal('modalProcedimento');
-      listarProcedimentos();
-      carregarProcedimentosDropdown();
-      carregarPacotesDropdown();
-      carregarDashboard();
     }
 
     function salvarPacote() {
@@ -2069,24 +2189,37 @@ function salvarCliente() {
         pacotes.push(pacote);
       }
       
-      salvarLocal();
-      fecharModal('modalPacote');
-      carregarPacotesDropdown();
+      // Salvar no Firebase
+      firebase.database().ref('pacotes').set(pacotes)
+        .then(() => {
+          fecharModal('modalPacote');
+          carregarPacotesDropdown();
+        })
+        .catch(error => {
+          alert('Erro ao salvar pacote: ' + error.message);
+        });
     }
 
     function excluirProcedimento(index) {
       if (confirm('Tem certeza que deseja excluir este procedimento? Isso não afetará os agendamentos já existentes, mas o procedimento não estará mais disponível para novos agendamentos.')) {
         procedimentos.splice(index, 1);
-        salvarLocal();
-        listarProcedimentos();
-        carregarProcedimentosDropdown();
-        carregarPacotesDropdown();
-        carregarDashboard();
+        
+        // Atualizar no Firebase
+        firebase.database().ref('procedimentos').set(procedimentos)
+          .then(() => {
+            listarProcedimentos();
+            carregarProcedimentosDropdown();
+            carregarPacotesDropdown();
+            carregarDashboard();
+          })
+          .catch(error => {
+            alert('Erro ao excluir procedimento: ' + error.message);
+          });
       }
     }
 
     // Funções de agendamentos
-       function carregarAgendamentosDiarios() {
+    function carregarAgendamentosDiarios() {
       const dataSelecionada = document.getElementById('dataAgendamento').value;
       const procedimentoFiltro = document.getElementById('filtroProcedimento').value;
       
@@ -2099,24 +2232,6 @@ function salvarCliente() {
       agendamentosColuna.innerHTML = '';
       
       // Criar coluna de horas (7h às 21h) em intervalos de 30 minutos
-      for (let h = 7; h <= 21; h++) {
-        for (let m = 0; m < 60; m += 30) {
-          const hora = h.toString().padStart(2, '0') + ':' + m.toString().padStart(2, '0');
-          
-          // Coluna de horas
-          const horaDiv = document.createElement('div');
-          horaDiv.className = 'time-slot';
-          horaDiv.textContent = hora;
-          horasColuna.appendChild(horaDiv);
-          
-          // Coluna de agendamentos
-          const slotDiv = document.createElement('div');
-          slotDiv.className = 'schedule-slot';
-          agendamentosColuna.appendChild(slotDiv);
-        }
-      }
-      
- // Criar coluna de horas (7h às 21h) em intervalos de 30 minutos
       for (let h = 7; h <= 21; h++) {
         for (let m = 0; m < 60; m += 30) {
           const hora = h.toString().padStart(2, '0') + ':' + m.toString().padStart(2, '0');
@@ -2202,6 +2317,7 @@ function salvarCliente() {
         });
       });
     }
+
     function carregarAgendamentosSemanais() {
       const dataInicio = new Date(document.getElementById('dataSemana').value);
       if (isNaN(dataInicio.getTime())) return;
@@ -2444,27 +2560,34 @@ function salvarCliente() {
         proc.cancelado = true;
         proc.canceladoEm = new Date().toISOString();
         
-        // Enviar mensagem de cancelamento
-        const msg = encodeURIComponent(
-          `Olá ${cliente.nome}, lamentamos informar que seu agendamento para ${proc.procedimento} ` +
-          `no dia ${formatarData(proc.data)} às ${proc.hora} foi cancelado.\n\n` +
-          `Caso queira reagendar, por favor entre em contato conosco.`
-        );
-        window.open(`https://wa.me/${cliente.whatsapp}?text=${msg}`, '_blank');
-        
-        salvarLocal();
-        
-        // Atualizar visualização
-        const abaAtiva = document.querySelector('#agendamentos .tab.active').getAttribute('onclick');
-        if (abaAtiva.includes('diario')) {
-          carregarAgendamentosDiarios();
-        } else if (abaAtiva.includes('semanal')) {
-          carregarAgendamentosSemanais();
-        } else if (abaAtiva.includes('mensal')) {
-          carregarAgendamentosMensais();
-        }
-        
-        carregarDashboard();
+        // Atualizar no Firebase
+        firebase.database().ref('clientes/' + cliente.firebaseId).update({
+          procedimentos: cliente.procedimentos
+        })
+          .then(() => {
+            // Enviar mensagem de cancelamento
+            const msg = encodeURIComponent(
+              `Olá ${cliente.nome}, lamentamos informar que seu agendamento para ${proc.procedimento} ` +
+              `no dia ${formatarData(proc.data)} às ${proc.hora} foi cancelado.\n\n` +
+              `Caso queira reagendar, por favor entre em contato conosco.`
+            );
+            window.open(`https://wa.me/${cliente.whatsapp}?text=${msg}`, '_blank');
+            
+            // Atualizar visualização
+            const abaAtiva = document.querySelector('#agendamentos .tab.active').getAttribute('onclick');
+            if (abaAtiva.includes('diario')) {
+              carregarAgendamentosDiarios();
+            } else if (abaAtiva.includes('semanal')) {
+              carregarAgendamentosSemanais();
+            } else if (abaAtiva.includes('mensal')) {
+              carregarAgendamentosMensais();
+            }
+            
+            carregarDashboard();
+          })
+          .catch(error => {
+            alert('Erro ao cancelar agendamento: ' + error.message);
+          });
       }
     }
 
@@ -2477,25 +2600,32 @@ function salvarCliente() {
         proc.faltou = true;
         proc.faltouEm = new Date().toISOString();
         
-        // Enviar mensagem de falta
-        const msg = encodeURIComponent(
-          `Olá ${cliente.nome}, notamos que você não compareceu ao seu agendamento para ${proc.procedimento} ` +
-          `no dia ${formatarData(proc.data)} às ${proc.hora}.\n\n` +
-          `Por favor, entre em contato para reagendarmos seu procedimento.`
-        );
-        window.open(`https://wa.me/${cliente.whatsapp}?text=${msg}`, '_blank');
-        
-        salvarLocal();
-        
-        // Atualizar visualização
-        const abaAtiva = document.querySelector('#agendamentos .tab.active').getAttribute('onclick');
-        if (abaAtiva.includes('diario')) {
-          carregarAgendamentosDiarios();
-        } else if (abaAtiva.includes('semanal')) {
-          carregarAgendamentosSemanais();
-        }
-        
-        carregarDashboard();
+        // Atualizar no Firebase
+        firebase.database().ref('clientes/' + cliente.firebaseId).update({
+          procedimentos: cliente.procedimentos
+        })
+          .then(() => {
+            // Enviar mensagem de falta
+            const msg = encodeURIComponent(
+              `Olá ${cliente.nome}, notamos que você não compareceu ao seu agendamento para ${proc.procedimento} ` +
+              `no dia ${formatarData(proc.data)} às ${proc.hora}.\n\n` +
+              `Por favor, entre em contato para reagendarmos seu procedimento.`
+            );
+            window.open(`https://wa.me/${cliente.whatsapp}?text=${msg}`, '_blank');
+            
+            // Atualizar visualização
+            const abaAtiva = document.querySelector('#agendamentos .tab.active').getAttribute('onclick');
+            if (abaAtiva.includes('diario')) {
+              carregarAgendamentosDiarios();
+            } else if (abaAtiva.includes('semanal')) {
+              carregarAgendamentosSemanais();
+            }
+            
+            carregarDashboard();
+          })
+          .catch(error => {
+            alert('Erro ao marcar falta: ' + error.message);
+          });
       }
     }
 
@@ -2991,11 +3121,18 @@ function salvarCliente() {
           const dados = JSON.parse(e.target.result);
           if (dados.clientes && dados.procedimentos && dados.pacotes) {
             if (confirm('Deseja importar os dados do backup? Isso substituirá todos os dados atuais.')) {
-              clientes = dados.clientes;
-              procedimentos = dados.procedimentos;
-              pacotes = dados.pacotes;
-              salvarLocal();
-              location.reload();
+              // Salvar no Firebase
+              Promise.all([
+                firebase.database().ref('clientes').set(dados.clientes),
+                firebase.database().ref('procedimentos').set(dados.procedimentos),
+                firebase.database().ref('pacotes').set(dados.pacotes)
+              ])
+              .then(() => {
+                location.reload();
+              })
+              .catch(error => {
+                alert('Erro ao importar backup: ' + error.message);
+              });
             }
           } else {
             alert('Arquivo de backup inválido ou incompleto.');
@@ -3007,7 +3144,7 @@ function salvarCliente() {
       reader.readAsText(file);
     }
 
-    // Adicionar botões de backup no HTML (você pode adicionar manualmente onde preferir)
+    // Adicionar botões de backup no HTML
     function adicionarBotoesBackup() {
       const backupDiv = document.createElement('div');
       backupDiv.style.position = 'fixed';
