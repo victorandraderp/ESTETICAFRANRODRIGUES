@@ -815,7 +815,7 @@
   <span style="margin-left:15px;"><span class="status-indicator status-canceled"></span> Cancelado</span>
   <span style="margin-left:15px;"><span class="status-indicator status-missed"></span> Faltou</span>
 </div>
-      
+
       <div id="listaClientes"></div>
     </section>
 
@@ -1549,7 +1549,7 @@
         (cliente.procedimentos || []).forEach((p, pIndex) => {
           const dt = new Date(p.data + 'T' + p.hora);
           let statusClass = 'status-scheduled';
-statusIcon = ''; // Remova os ícones, usaremos apenas as bolinhas
+          statusIcon = ''; // Remova os ícones, usaremos apenas as bolinhas
 
           
           if (p.cancelado) {
@@ -1565,7 +1565,7 @@ statusIcon = ''; // Remova os ícones, usaremos apenas as bolinhas
           
           procedimentosHtml += `
             <li style="margin-bottom:5px; display:flex; align-items:center;">
-              `<span class="status-indicator ${statusClass}" style="margin-right:5px;"></span>`
+         <span class="status-indicator ${statusClass}" style="margin-right:5px;"></span>
               <span>${p.procedimento} ${p.pacote ? `<span class="package-badge">${p.pacote}</span>` : ''} - ${formatarData(p.data)} às ${p.hora}</span>
             </li>
           `;
